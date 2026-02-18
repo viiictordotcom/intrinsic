@@ -1,6 +1,6 @@
 # To-do
 
-- Add to nixpkgs.
+- Add to nixpkgs and other package managers.
 - Mark/unmark/filter tickers currently on portfolio -> filter.
 - Live-price scraper -> Screener mode.
 - Support financial institutions, insurance companies.
