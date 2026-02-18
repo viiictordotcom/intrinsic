@@ -1,12 +1,11 @@
-# Roadmap
+# To-do
 
 - Add to nixpkgs.
-- Mark/unmark/filter tickers currently on portfolio.
-- Live-price -> Screener mode.
-- More score formulas options.
+- Mark/unmark/filter tickers currently on portfolio -> filter.
+- Live-price scraper -> Screener mode.
 - Support financial institutions, insurance companies.
-- Monte Carlo simulation with >=5 periods.
-- LLMs (OpenAI, Anthropic, Google, Cloudflare, AWS, Groq, Deepseek, Qwen, llama-cpp, Ollama...).
+- Monte Carlo simulation with >=x periods.
+- LLMs integration. 
 - Macroeconomics.
 - Cloud sync (restic?).
 - Telegram sync.
