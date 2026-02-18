@@ -3,7 +3,7 @@
 Analyze stocks from the terminal. Track your companies with a fast ncurses + SQLite workflow. Distributed as a **Nix-only** package.
 
 <p align="center">
-  <img src="intrinsic_img.png" alt="Intrinsic terminal app" width="600"/>
+  <img src="intrinsic_img.png" alt="Intrinsic terminal app" width="400"/>
 </p>
 
 The name intrinsic comes from Benjamin Graham’s famous concept of intrinsic value. The true worth of a company based on its fundamentals, rather than market speculation. The app is designed to bring this philosophy into your workflow, giving you a clear, data-driven view of the businesses you’re evaluating.
