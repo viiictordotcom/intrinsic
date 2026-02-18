@@ -1,0 +1,8 @@
+build/
+build-release/
+build-sanitize/
+compile_commands.json
+*.md
+!README.md
+!to-do.md
+
