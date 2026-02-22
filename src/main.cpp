@@ -111,6 +111,7 @@ int main()
                 break;
             }
 
+            if (app.quit_requested) break;
             if (consumed) continue;
 
             // hard global key

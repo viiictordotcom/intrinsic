@@ -50,6 +50,7 @@ struct AppState {
     db::Database* db = nullptr;                  // non-owning dep-injection
     views::ViewId current = views::ViewId::Home; // current view
     std::string last_error;                      // error view message bus
+    bool quit_requested = false;                 // request clean main-loop exit
 
     AddState add;
 

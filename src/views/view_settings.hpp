@@ -219,7 +219,7 @@ inline void render_settings(const AppState& app)
     y += 1;
     if (LINES > y)
         mvprintw(y, 2, "T  TTM       : %s", app.settings.ttm ? "on" : "off");
-    y += 1;
+    y += 2;
     if (LINES > y) {
         if (app.settings_view.update_confirm_armed) {
             mvprintw(y, 2, "U  update    : run updater now (press U again)");
@@ -501,6 +501,7 @@ inline bool handle_key_settings(AppState& app, int ch)
         if (run_update_command(&update_err)) {
             app.settings_view.update_status_line =
                 "update complete, restart intrinsic to use newest build";
+            app.quit_requested = true;
         }
         else {
             app.settings_view.update_status_line = std::move(update_err);
@@ -524,5 +525,3 @@ inline bool handle_key_settings(AppState& app, int ch)
 }
 
 } // namespace views
-
-

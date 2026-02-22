@@ -329,6 +329,7 @@ TEST_CASE("key_settings update binding confirms and runs update command")
     REQUIRE(!sandbox.app.settings_view.update_confirm_armed);
     REQUIRE_CONTAINS(sandbox.app.settings_view.update_status_line,
                      "restart intrinsic");
+    REQUIRE(sandbox.app.quit_requested);
 }
 
 TEST_CASE("key_settings update binding reports failures from update command")
@@ -343,5 +344,5 @@ TEST_CASE("key_settings update binding reports failures from update command")
     REQUIRE(!sandbox.app.settings_view.update_confirm_armed);
     REQUIRE_CONTAINS(sandbox.app.settings_view.update_status_line,
                      "update failed");
+    REQUIRE(!sandbox.app.quit_requested);
 }
-
