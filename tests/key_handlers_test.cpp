@@ -322,8 +322,7 @@ TEST_CASE("key_settings update binding confirms and runs update command")
 
     REQUIRE(views::handle_key_settings(sandbox.app, 'U'));
     REQUIRE(sandbox.app.settings_view.update_confirm_armed);
-    REQUIRE_CONTAINS(sandbox.app.settings_view.update_status_line,
-                     "press U again");
+    REQUIRE(sandbox.app.settings_view.update_status_line.empty());
 
     REQUIRE(views::handle_key_settings(sandbox.app, 'U'));
     REQUIRE(!sandbox.app.settings_view.update_confirm_armed);

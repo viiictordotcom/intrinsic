@@ -491,8 +491,7 @@ inline bool handle_key_settings(AppState& app, int ch)
 
         if (!app.settings_view.update_confirm_armed) {
             app.settings_view.update_confirm_armed = true;
-            app.settings_view.update_status_line =
-                "press U again to run update command";
+            app.settings_view.update_status_line.clear();
             return true;
         }
 
