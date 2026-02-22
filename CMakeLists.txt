@@ -58,6 +58,7 @@ if(BUILD_TESTING)
         tests/key_handlers_test.cpp
         tests/reset_nuke_test.cpp
         src/db/database.cpp
+        src/db/database_schema.cpp
         src/db/database_queries.cpp)
 
     target_include_directories(intrinsic_tests PRIVATE

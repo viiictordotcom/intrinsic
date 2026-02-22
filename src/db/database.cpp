@@ -17,34 +17,6 @@ static std::string sqlite_path_utf8(const std::filesystem::path& path)
     return path.string();
 }
 
-static constexpr const char* kSchemaSQL = R"SQL(
-CREATE TABLE IF NOT EXISTS tickers (
-    ticker      TEXT    PRIMARY KEY,
-    last_update INTEGER NOT NULL
-) WITHOUT ROWID;
-
-CREATE INDEX IF NOT EXISTS idx_tickers_order ON tickers(last_update DESC, ticker ASC);
-
-CREATE TABLE IF NOT EXISTS finances (
-    ticker                      TEXT    NOT NULL,
-    year                        INTEGER NOT NULL,
-    period_type                 TEXT    NOT NULL,
-    current_assets              INTEGER,
-    non_current_assets          INTEGER,
-    eps                         REAL,
-    cash_and_equivalents        INTEGER,
-    cash_flow_from_financing    INTEGER,
-    cash_flow_from_investing    INTEGER,
-    cash_flow_from_operations   INTEGER,
-    revenue                     INTEGER,
-    current_liabilities         INTEGER,
-    non_current_liabilities     INTEGER,
-    net_income                  INTEGER,
-    PRIMARY KEY (ticker, year, period_type),
-    FOREIGN KEY (ticker) REFERENCES tickers(ticker) ON DELETE CASCADE
-) WITHOUT ROWID;
-)SQL";
-
 Database::Database() = default;
 
 void Database::close()
@@ -115,19 +87,6 @@ void Database::open_connection_(const std::filesystem::path& file_path)
     db_path_ = file_path;
 }
 
-void Database::apply_schema_()
-{
-    db::detail::exec_sql(db_, "BEGIN;");
-    try {
-        db::detail::exec_sql(db_, kSchemaSQL);
-        db::detail::exec_sql(db_, "COMMIT;");
-    }
-    catch (...) {
-        db::detail::exec_sql(db_, "ROLLBACK;");
-        throw;
-    }
-}
-
 void Database::open_or_create()
 {
     if (db_) return;
@@ -141,4 +100,3 @@ void Database::open_or_create()
 }
 
 } // namespace db
-

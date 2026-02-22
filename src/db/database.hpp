@@ -21,6 +21,7 @@ public:
     struct TickerRow {
         std::string ticker;
         std::int64_t last_update = 0;
+        bool portfolio = false;
     };
 
     enum class TickerSortKey { Ticker, LastUpdate };
@@ -80,11 +81,16 @@ public:
                                        int page_size,
                                        TickerSortKey key,
                                        SortDir dir,
-                                       std::string* err = nullptr);
+                                       std::string* err = nullptr,
+                                       bool portfolio_only = false);
 
     std::vector<TickerRow> search_tickers(const std::string& contains,
                                           int limit,
-                                          std::string* err = nullptr);
+                                          std::string* err = nullptr,
+                                          bool portfolio_only = false);
+
+    bool toggle_ticker_portfolio(const std::string& ticker,
+                                 std::string* err = nullptr);
 
     bool delete_period(const std::string& ticker,
                        const std::string& period,
@@ -112,5 +118,4 @@ private:
 };
 
 } // namespace db
-
 

@@ -21,13 +21,15 @@ inline constexpr int kHomeMaxTextWidth = 18;
 inline constexpr int kHomeTextCushion = 2;
 inline constexpr int kHomeSearchLimit = 15;
 inline constexpr std::size_t kHomeSearchMaxLen = 12;
+inline constexpr int kHomePortfolioColorPair = 5;
 
 inline bool prefetch_matches(const AppState& app, int page)
 {
     const auto& p = app.tickers.prefetch;
     return p.valid && p.page == page && p.page_size == app.tickers.page_size &&
            p.sort_key == app.settings.sort_key &&
-           p.sort_dir == app.settings.sort_dir;
+           p.sort_dir == app.settings.sort_dir &&
+           p.portfolio_only == app.tickers.portfolio_only;
 }
 
 inline std::vector<db::Database::TickerRow>
@@ -43,7 +45,8 @@ fetch_page(AppState& app, int page, std::string* err)
                                app.tickers.page_size,
                                app.settings.sort_key,
                                app.settings.sort_dir,
-                               err);
+                               err,
+                               app.tickers.portfolio_only);
 }
 
 inline int home_cell_width(const std::vector<db::Database::TickerRow>& rows)
@@ -152,7 +155,10 @@ inline bool run_home_search(AppState& app)
 {
     std::string err;
     auto rows = app.db->search_tickers(
-        app.tickers.search_query, kHomeSearchLimit, &err);
+        app.tickers.search_query,
+        kHomeSearchLimit,
+        &err,
+        app.tickers.portfolio_only);
     if (!err.empty()) {
         route_error(app, err);
         return false;
@@ -162,6 +168,56 @@ inline bool run_home_search(AppState& app)
     app.tickers.search_submitted_query = app.tickers.search_query;
     app.tickers.selected = 0;
     app.tickers.row_scroll = 0;
+    return true;
+}
+
+inline bool toggle_home_portfolio_mode(AppState& app)
+{
+    app.tickers.portfolio_only = !app.tickers.portfolio_only;
+    app.tickers.page = 0;
+    app.tickers.invalidate_prefetch();
+    app.tickers.selected = 0;
+    app.tickers.row_scroll = 0;
+
+    if (!app.tickers.search_mode) return true;
+
+    const bool has_submitted_query = !app.tickers.search_submitted_query.empty();
+    const bool showing_submitted_query =
+        app.tickers.search_query == app.tickers.search_submitted_query;
+    if (has_submitted_query && showing_submitted_query) {
+        run_home_search(app);
+    }
+    else {
+        app.tickers.search_rows.clear();
+        app.tickers.search_submitted_query.clear();
+    }
+    return true;
+}
+
+inline bool toggle_selected_home_ticker_portfolio(AppState& app)
+{
+    const auto& rows = app.tickers.last_rows;
+    if (rows.empty()) return true;
+
+    if (app.tickers.selected < 0) app.tickers.selected = 0;
+    if (app.tickers.selected >= static_cast<int>(rows.size())) {
+        app.tickers.selected = static_cast<int>(rows.size() - 1);
+    }
+
+    const std::string ticker = rows[app.tickers.selected].ticker;
+    std::string err;
+    if (!app.db->toggle_ticker_portfolio(ticker, &err)) {
+        if (!err.empty()) route_error(app, err);
+        return true;
+    }
+
+    app.tickers.invalidate_prefetch();
+    if (app.tickers.portfolio_only) {
+        app.tickers.page = 0;
+        app.tickers.selected = 0;
+        app.tickers.row_scroll = 0;
+    }
+
     return true;
 }
 
@@ -194,7 +250,8 @@ inline bool go_next_home_page(AppState& app)
                                          app.tickers.page_size,
                                          app.settings.sort_key,
                                          app.settings.sort_dir,
-                                         &err);
+                                         &err,
+                                         app.tickers.portfolio_only);
 
     if (!err.empty()) {
         route_error(app, err);
@@ -208,6 +265,7 @@ inline bool go_next_home_page(AppState& app)
     p.page_size = app.tickers.page_size;
     p.sort_key = app.settings.sort_key;
     p.sort_dir = app.settings.sort_dir;
+    p.portfolio_only = app.tickers.portfolio_only;
     p.rows = std::move(next_rows);
     p.valid = true;
 
@@ -260,7 +318,12 @@ inline void render_home(AppState& app)
             mvprintw(0, 0, "intrinsic ~");
             attroff(A_BOLD);
             if (has_colors()) attroff(COLOR_PAIR(3));
-            if (COLS > 11) mvprintw(0, 11, " search");
+            if (COLS > 11) {
+                mvprintw(0,
+                         11,
+                         app.tickers.portfolio_only ? " search portfolio"
+                                                    : " search");
+            }
         }
         if (LINES > 1) {
             mvprintw(1, 0, "search> %s", app.tickers.search_query.c_str());
@@ -287,7 +350,13 @@ inline void render_home(AppState& app)
             mvprintw(0, 0, "intrinsic ~");
             attroff(A_BOLD);
             if (has_colors()) attroff(COLOR_PAIR(3));
-            if (COLS > 11) mvprintw(0, 11, " page %d", app.tickers.page + 1);
+            if (COLS > 11) {
+                mvprintw(0,
+                         11,
+                         app.tickers.portfolio_only ? " portfolio page %d"
+                                                    : " page %d",
+                         app.tickers.page + 1);
+            }
         }
     }
 
@@ -339,6 +408,7 @@ inline void render_home(AppState& app)
         if (x >= COLS) continue;
 
         const bool selected = idx == app.tickers.selected;
+        const bool portfolio = rows_ref[i].portfolio;
         if (selected) attron(A_BOLD);
 
         const char marker = selected ? '>' : ' ';
@@ -346,15 +416,30 @@ inline void render_home(AppState& app)
 
         const std::string text = rows_ref[i].ticker;
         const int text_w = std::max(0, std::min(col_w - 2, COLS - (x + 2)));
-        if (text_w > 0) {
-            mvprintw(y, x + 2, "%-*.*s", text_w, text_w, text.c_str());
+        const int visible_len =
+            std::max(0, std::min(static_cast<int>(text.size()), text_w));
+        if (visible_len > 0) {
+            if (portfolio && has_colors()) {
+                attron(COLOR_PAIR(kHomePortfolioColorPair));
+            }
+            mvprintw(y, x + 2, "%.*s", visible_len, text.c_str());
+            if (portfolio && has_colors()) {
+                attroff(COLOR_PAIR(kHomePortfolioColorPair));
+            }
         }
 
         if (selected) attroff(A_BOLD);
     }
 
     if (rows_ref.empty() && !app.tickers.search_mode) {
-        if (LINES > 3) mvprintw(3, 0, "Press 'a' to start using intrinsic");
+        if (LINES > 3) {
+            if (app.tickers.portfolio_only) {
+                mvprintw(3, 0, "No portfolio tickers. Press 'p' on a ticker.");
+            }
+            else {
+                mvprintw(3, 0, "Press 'a' to start using intrinsic");
+            }
+        }
     }
 
     if (help_lines >= 4) {
@@ -367,7 +452,7 @@ inline void render_home(AppState& app)
         }
         else {
             attron(A_DIM);
-            mvprintw(y0 + 2, 0, "a: add   space: search");
+            mvprintw(y0 + 2, 0, "a: add   p: mark   P: portfolio view   space: search");
             mvprintw(y0 + 3, 0, "q: quit   s: settings   ?: help");
             attroff(A_DIM);
         }
@@ -382,7 +467,7 @@ inline void render_home(AppState& app)
         }
         else {
             attron(A_DIM);
-            mvprintw(y0 + 0, 0, "a: add   space: search");
+            mvprintw(y0 + 0, 0, "a: add   p: mark   P: portfolio view   space: search");
             mvprintw(y0 + 1, 0, "q: quit   s: settings   ?: help");
             attroff(A_DIM);
         }
@@ -403,6 +488,10 @@ inline bool handle_key_home(AppState& app, int ch)
     }
     else {
         app.tickers.selected = 0;
+    }
+
+    if (ch == 'P') {
+        return toggle_home_portfolio_mode(app);
     }
 
     if (app.tickers.search_mode) {
@@ -461,9 +550,14 @@ inline bool handle_key_home(AppState& app, int ch)
             }
         }
     }
-    else if (ch == ' ') {
-        enter_home_search_mode(app);
-        return true;
+    else {
+        if (ch == ' ') {
+            enter_home_search_mode(app);
+            return true;
+        }
+        if (ch == 'p') {
+            return toggle_selected_home_ticker_portfolio(app);
+        }
     }
 
     if (ch == KEY_UP) {
@@ -522,5 +616,3 @@ inline bool handle_key_home(AppState& app, int ch)
 }
 
 } // namespace views
-
-

@@ -146,7 +146,12 @@ static bool in_transaction(sqlite3* db, Fn&& fn, std::string* err = nullptr)
 // ***** QUERIES
 
 std::vector<db::Database::TickerRow> db::Database::get_tickers(
-    int page, int page_size, TickerSortKey key, SortDir dir, std::string* err)
+    int page,
+    int page_size,
+    TickerSortKey key,
+    SortDir dir,
+    std::string* err,
+    bool portfolio_only)
 {
     try {
         if (page < 0) page = 0;
@@ -178,9 +183,13 @@ std::vector<db::Database::TickerRow> db::Database::get_tickers(
             }
         }
 
-        std::string sql = "SELECT ticker, last_update "
-                          "FROM tickers "
-                          "ORDER BY " +
+        std::string sql = "SELECT ticker, last_update, portfolio "
+                          "FROM tickers ";
+        if (portfolio_only) {
+            sql += "WHERE portfolio = 1 ";
+        }
+
+        sql += "ORDER BY " +
                           std::string(order_by) +
                           " "
                           "LIMIT ? OFFSET ?;";
@@ -199,6 +208,7 @@ std::vector<db::Database::TickerRow> db::Database::get_tickers(
                 TickerRow r;
                 r.ticker = col_text(st.get(), 0);
                 r.last_update = sqlite3_column_int64(st.get(), 1);
+                r.portfolio = sqlite3_column_int(st.get(), 2) != 0;
                 out.push_back(std::move(r));
             }
             else if (rc == SQLITE_DONE) {
@@ -217,21 +227,26 @@ std::vector<db::Database::TickerRow> db::Database::get_tickers(
 }
 
 std::vector<db::Database::TickerRow> db::Database::search_tickers(
-    const std::string& contains, int limit, std::string* err)
+    const std::string& contains, int limit, std::string* err, bool portfolio_only)
 {
     try {
         if (limit <= 0) limit = 1;
         if (contains.empty()) return {};
 
-        const char* sql = R"SQL(
-            SELECT ticker, last_update
+        std::string sql = R"SQL(
+            SELECT ticker, last_update, portfolio
             FROM tickers
             WHERE UPPER(ticker) LIKE '%' || UPPER(?) || '%'
+        )SQL";
+        if (portfolio_only) {
+            sql += " AND portfolio = 1 ";
+        }
+        sql += R"SQL(
             ORDER BY ticker ASC
             LIMIT ?;
         )SQL";
 
-        Stmt st{db_, sql};
+        Stmt st{db_, sql.c_str()};
         bind_text(db_, st.get(), 1, contains);
         if (sqlite3_bind_int(st.get(), 2, limit) != SQLITE_OK)
             db::detail::throw_sqlite(db_, "bind limit failed");
@@ -243,6 +258,7 @@ std::vector<db::Database::TickerRow> db::Database::search_tickers(
                 TickerRow r;
                 r.ticker = col_text(st.get(), 0);
                 r.last_update = sqlite3_column_int64(st.get(), 1);
+                r.portfolio = sqlite3_column_int(st.get(), 2) != 0;
                 out.push_back(std::move(r));
             }
             else if (rc == SQLITE_DONE) {
@@ -258,6 +274,31 @@ std::vector<db::Database::TickerRow> db::Database::search_tickers(
     catch (const std::exception& e) {
         if (err) *err = e.what();
         return {};
+    }
+}
+
+bool Database::toggle_ticker_portfolio(const std::string& ticker, std::string* err)
+{
+    try {
+        const char* sql = R"SQL(
+            UPDATE tickers
+            SET portfolio = CASE WHEN portfolio = 0 THEN 1 ELSE 0 END
+            WHERE ticker = ?;
+        )SQL";
+
+        Stmt st{db_, sql};
+        bind_text(db_, st.get(), 1, ticker);
+
+        const int rc = sqlite3_step(st.get());
+        if (rc != SQLITE_DONE) {
+            db::detail::throw_sqlite(db_, "toggle ticker portfolio step failed");
+        }
+
+        return sqlite3_changes(db_) > 0;
+    }
+    catch (const std::exception& e) {
+        if (err) *err = e.what();
+        return false;
     }
 }
 
@@ -522,5 +563,4 @@ Database::get_finances(const std::string& ticker, std::string* err)
 }
 
 } // namespace db
-
 

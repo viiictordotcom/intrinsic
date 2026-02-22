@@ -76,6 +76,7 @@ struct AppState {
         int row_scroll = 0;
         bool search_mode = false;
         bool search_exit_armed = false;
+        bool portfolio_only = false;
         std::string search_query;
         // frozen query used for the currently displayed results
         std::string search_submitted_query;
@@ -87,6 +88,7 @@ struct AppState {
             int page_size = 0;
             db::Database::TickerSortKey sort_key{};
             db::Database::SortDir sort_dir{};
+            bool portfolio_only = false;
             std::vector<db::Database::TickerRow> rows;
             bool valid = false;
         } prefetch;
@@ -159,4 +161,3 @@ inline void route_error(AppState& app, const char* err)
 {
     route_error(app, std::string(err ? err : ""));
 }
-

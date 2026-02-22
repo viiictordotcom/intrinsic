@@ -74,6 +74,8 @@ Global:
 
 Home view:
 - `a`: add record
+- `p`: mark/unmark selected ticker as a portfolio ticker
+- `P`: toggle portfolio-only view (and portfolio-scoped search)
 - `space`: search mode
 - `esc`: exit search
 - `arrow keys`: move selection / page navigation

@@ -19,13 +19,15 @@ inline void render_help(AppState&)
         if (COLS > 11) mvprintw(0, 11, " help");
     }
 
-    static constexpr std::array<const char*, 12> lines = {
+    static constexpr std::array<const char*, 14> lines = {
         "q  - quit",
         "h  - home",
         "?  - help",
         "s  - settings",
         "",
         "a  - add mode",
+        "p  - mark/unmark portfolio ticker (home)",
+        "P  - show all or only portfolio tickers (home)",
         "space  - search mode",
         "esc  - exit search/add mode",
         "",
@@ -59,5 +61,3 @@ inline bool handle_key_help(AppState&, int)
 }
 
 } // namespace views
-
-

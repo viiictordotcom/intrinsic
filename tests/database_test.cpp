@@ -9,6 +9,7 @@
 #include <iterator>
 #include <limits>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -41,6 +42,50 @@ void open_test_db(db::Database& database, const std::filesystem::path& root)
     database.open_or_create();
 }
 
+void create_legacy_schema_db(const std::filesystem::path& db_path)
+{
+    std::error_code ec;
+    std::filesystem::create_directories(db_path.parent_path(), ec);
+    if (ec) {
+        throw std::runtime_error("failed to create db directory");
+    }
+
+    sqlite3* raw = nullptr;
+    const int open_rc = sqlite3_open_v2(db_path.string().c_str(),
+                                        &raw,
+                                        SQLITE_OPEN_READWRITE |
+                                            SQLITE_OPEN_CREATE |
+                                            SQLITE_OPEN_FULLMUTEX,
+                                        nullptr);
+    if (open_rc != SQLITE_OK || !raw) {
+        if (raw) sqlite3_close(raw);
+        throw std::runtime_error("failed to create legacy sqlite file");
+    }
+
+    auto exec = [raw](const char* sql) {
+        char* err = nullptr;
+        const int rc = sqlite3_exec(raw, sql, nullptr, nullptr, &err);
+        if (rc != SQLITE_OK) {
+            std::string msg = err ? err : "sqlite exec error";
+            sqlite3_free(err);
+            sqlite3_close(raw);
+            throw std::runtime_error(msg);
+        }
+    };
+
+    exec("PRAGMA foreign_keys = ON;");
+    exec(R"SQL(
+        CREATE TABLE tickers (
+            ticker TEXT PRIMARY KEY,
+            last_update INTEGER NOT NULL
+        ) WITHOUT ROWID;
+    )SQL");
+    exec(
+        "INSERT INTO tickers (ticker, last_update) VALUES ('LEGACY', 123456);");
+
+    sqlite3_close(raw);
+}
+
 std::vector<std::string>
 to_tickers(const std::vector<db::Database::TickerRow>& rows)
 {
@@ -65,6 +110,60 @@ TEST_CASE("database open_or_create creates file under XDG_DATA_HOME")
     const auto expected = temp.path() / "intrinsic" / "intrinsic.db";
     REQUIRE_EQ(database.path(), expected);
     REQUIRE(std::filesystem::exists(expected));
+}
+
+TEST_CASE("database open_or_create migrates legacy ticker schema once")
+{
+    test::TempDir temp;
+    test::ScopedEnvVar xdg_data("XDG_DATA_HOME", temp.path().string());
+    test::ScopedEnvVar home("HOME", (temp.path() / "home").string());
+
+    const std::filesystem::path db_path =
+        temp.path() / "intrinsic" / "intrinsic.db";
+    create_legacy_schema_db(db_path);
+
+    db::Database database;
+    database.open_or_create();
+
+    std::string err;
+    const auto all = database.get_tickers(0,
+                                          10,
+                                          db::Database::TickerSortKey::Ticker,
+                                          db::Database::SortDir::Asc,
+                                          &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(all.size(), std::size_t{1});
+    REQUIRE_EQ(all.front().ticker, std::string("LEGACY"));
+    REQUIRE(!all.front().portfolio);
+
+    REQUIRE(database.toggle_ticker_portfolio("LEGACY", &err));
+    REQUIRE(err.empty());
+
+    const auto portfolio_rows =
+        database.get_tickers(0,
+                             10,
+                             db::Database::TickerSortKey::Ticker,
+                             db::Database::SortDir::Asc,
+                             &err,
+                             true);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(portfolio_rows.size(), std::size_t{1});
+    REQUIRE(portfolio_rows.front().portfolio);
+
+    database.close();
+    database.open_or_create();
+
+    const auto persisted =
+        database.get_tickers(0,
+                             10,
+                             db::Database::TickerSortKey::Ticker,
+                             db::Database::SortDir::Asc,
+                             &err,
+                             true);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(persisted.size(), std::size_t{1});
+    REQUIRE_EQ(persisted.front().ticker, std::string("LEGACY"));
+    REQUIRE(persisted.front().portfolio);
 }
 
 TEST_CASE(
@@ -179,6 +278,65 @@ TEST_CASE("database add_finances upserts existing period")
     REQUIRE_EQ(finances.front().revenue, std::optional<std::int64_t>{999});
     REQUIRE_EQ(finances.front().net_income, std::optional<std::int64_t>{99});
     REQUIRE_EQ(finances.front().eps, std::optional<double>{9.9});
+}
+
+TEST_CASE("database portfolio toggles and filters get/search ticker queries")
+{
+    test::TempDir temp;
+    db::Database database;
+    open_test_db(database, temp.path());
+
+    std::string err;
+    REQUIRE(database.add_finances("AAPL", "2024-Y", make_payload(), &err));
+    REQUIRE(database.add_finances("MSFT", "2024-Y", make_payload(), &err));
+
+    const auto all = database.get_tickers(0,
+                                          10,
+                                          db::Database::TickerSortKey::Ticker,
+                                          db::Database::SortDir::Asc,
+                                          &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(all.size(), std::size_t{2});
+    REQUIRE(!all[0].portfolio);
+    REQUIRE(!all[1].portfolio);
+
+    REQUIRE(database.toggle_ticker_portfolio("AAPL", &err));
+    REQUIRE(err.empty());
+
+    const auto portfolio_only =
+        database.get_tickers(0,
+                             10,
+                             db::Database::TickerSortKey::Ticker,
+                             db::Database::SortDir::Asc,
+                             &err,
+                             true);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(portfolio_only.size(), std::size_t{1});
+    REQUIRE_EQ(portfolio_only.front().ticker, std::string("AAPL"));
+    REQUIRE(portfolio_only.front().portfolio);
+
+    const auto search_portfolio = database.search_tickers("AAP", 10, &err, true);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(search_portfolio.size(), std::size_t{1});
+    REQUIRE_EQ(search_portfolio.front().ticker, std::string("AAPL"));
+    REQUIRE(search_portfolio.front().portfolio);
+
+    const auto search_filtered_out =
+        database.search_tickers("MSF", 10, &err, true);
+    REQUIRE(err.empty());
+    REQUIRE(search_filtered_out.empty());
+
+    REQUIRE(database.toggle_ticker_portfolio("AAPL", &err));
+    REQUIRE(err.empty());
+
+    const auto none = database.get_tickers(0,
+                                           10,
+                                           db::Database::TickerSortKey::Ticker,
+                                           db::Database::SortDir::Asc,
+                                           &err,
+                                           true);
+    REQUIRE(err.empty());
+    REQUIRE(none.empty());
 }
 
 TEST_CASE("database get_tickers supports deterministic sort and pagination")
@@ -469,5 +627,3 @@ TEST_CASE("database supports concurrent writes across separate connections")
     REQUIRE(err.empty());
     REQUIRE_EQ(rows.size(), std::size_t{100});
 }
-
-

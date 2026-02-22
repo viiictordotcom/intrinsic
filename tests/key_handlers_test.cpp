@@ -68,6 +68,84 @@ TEST_CASE("key_home enforces search length limit and exits search mode")
     REQUIRE(!sandbox.app.tickers.search_mode);
 }
 
+TEST_CASE("key_home p toggles selected ticker portfolio membership")
+{
+    test::AppSandbox sandbox;
+    sandbox.add_finance("AAPL", "2024-Y");
+
+    std::string err;
+    sandbox.app.tickers.last_rows =
+        sandbox.database.get_tickers(0,
+                                     20,
+                                     db::Database::TickerSortKey::Ticker,
+                                     db::Database::SortDir::Asc,
+                                     &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(sandbox.app.tickers.last_rows.size(), std::size_t{1});
+
+    REQUIRE(views::handle_key_home(sandbox.app, 'p'));
+
+    const auto portfolio_only =
+        sandbox.database.get_tickers(0,
+                                     20,
+                                     db::Database::TickerSortKey::Ticker,
+                                     db::Database::SortDir::Asc,
+                                     &err,
+                                     true);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(portfolio_only.size(), std::size_t{1});
+    REQUIRE_EQ(portfolio_only.front().ticker, std::string("AAPL"));
+
+    REQUIRE(views::handle_key_home(sandbox.app, 'p'));
+
+    const auto none = sandbox.database.get_tickers(0,
+                                                   20,
+                                                   db::Database::TickerSortKey::Ticker,
+                                                   db::Database::SortDir::Asc,
+                                                   &err,
+                                                   true);
+    REQUIRE(err.empty());
+    REQUIRE(none.empty());
+}
+
+TEST_CASE("key_home P toggles portfolio mode and scopes search")
+{
+    test::AppSandbox sandbox;
+    sandbox.add_finance("AAPL", "2024-Y");
+    sandbox.add_finance("MSFT", "2024-Y");
+
+    std::string err;
+    REQUIRE(sandbox.database.toggle_ticker_portfolio("AAPL", &err));
+    REQUIRE(err.empty());
+
+    sandbox.app.tickers.page = 4;
+    sandbox.app.tickers.selected = 3;
+    sandbox.app.tickers.prefetch.valid = true;
+
+    REQUIRE(views::handle_key_home(sandbox.app, 'P'));
+    REQUIRE(sandbox.app.tickers.portfolio_only);
+    REQUIRE_EQ(sandbox.app.tickers.page, 0);
+    REQUIRE_EQ(sandbox.app.tickers.selected, 0);
+    REQUIRE(!sandbox.app.tickers.prefetch.valid);
+
+    const auto rows = views::fetch_page(sandbox.app, 0, &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(rows.size(), std::size_t{1});
+    REQUIRE_EQ(rows.front().ticker, std::string("AAPL"));
+
+    REQUIRE(views::handle_key_home(sandbox.app, ' '));
+    REQUIRE(sandbox.app.tickers.search_mode);
+    for (char c : std::string("msft")) {
+        REQUIRE(views::handle_key_home(sandbox.app, c));
+    }
+    REQUIRE(views::handle_key_home(sandbox.app, '\n'));
+    REQUIRE_EQ(sandbox.app.tickers.search_submitted_query, std::string("MSFT"));
+    REQUIRE(sandbox.app.tickers.search_rows.empty());
+
+    REQUIRE(views::handle_key_home(sandbox.app, 'P'));
+    REQUIRE(!sandbox.app.tickers.portfolio_only);
+}
+
 TEST_CASE("key_add create flow stores finance record and returns home")
 {
     test::AppSandbox sandbox;
@@ -266,5 +344,4 @@ TEST_CASE("key_settings update binding reports failures from update command")
     REQUIRE_CONTAINS(sandbox.app.settings_view.update_status_line,
                      "update failed");
 }
-
 
