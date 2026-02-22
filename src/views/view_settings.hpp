@@ -225,7 +225,7 @@ inline void render_settings(const AppState& app)
             mvprintw(y, 2, "U  update    : run updater now (press U again)");
         }
         else {
-            mvprintw(y, 2, "U  update    : check/apply nix profile update");
+            mvprintw(y, 2, "U  update    : update");
         }
     }
     y += 2;
