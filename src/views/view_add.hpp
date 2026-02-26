@@ -737,7 +737,7 @@ inline void render_add(AppState& app)
             (app.add.mode == AddMode::EditFromTicker) ? " edit" : " add";
         suffix += (app.add.ticker_type == 2) ? " t2" : " t1";
         if (app.add.mode == AddMode::Create && !app.add.ticker_type_locked) {
-            suffix += " [tab]";
+            suffix += "";
         }
         else if (app.add.ticker_type_locked) {
             suffix += " [lock]";
