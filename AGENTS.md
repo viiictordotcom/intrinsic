@@ -18,6 +18,7 @@ Prefer `just` (see `just --list`) or call CMake directly.
 - `just build`: compile the debug binary at `build/intrinsic`.
 - `just test`: build `intrinsic_tests` and run the suite with CTest from `build/`.
 - `just test-sanitize`: build `intrinsic_tests` with sanitizers and run CTest from `build-sanitize/`.
+- `just test-all`: run `clean`, `cppcheck`, `test`, and `test-sanitize` in sequence for a full local validation pass.
 - `just run`: build, then run the ncurses app.
 - `just debug`: launch the app under lldb.
 - `just cppcheck`: run static analysis using `compile_commands.json`.
@@ -50,6 +51,7 @@ Prefer `just` (see `just --list`) or call CMake directly.
 - Place tests in `tests/` and name them `*_test.cpp`.
 - Run `just test` to build `intrinsic_tests` and execute all checks via CTest.
 - Run `just test-sanitize` periodically to execute the suite with ASan/UBSan enabled.
+- Use `just test-all` when you want a clean, full verification pass (cleanup, static analysis, normal tests, and sanitizer tests).
 - Cover normal behavior plus edge cases (invalid input, overflow boundaries, and injection-like strings).
 - Run `just cppcheck` as a baseline static-analysis quality gate.
 

@@ -17,6 +17,12 @@ test-sanitize: configure-sanitize
     cmake --build build-sanitize --target intrinsic_tests
     ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 ctest --test-dir build-sanitize --output-on-failure
 
+test-all:
+    just clean
+    just cppcheck
+    just test
+    just test-sanitize
+
 cppcheck: configure
     cppcheck \
     --project=build/compile_commands.json \

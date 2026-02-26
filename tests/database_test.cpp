@@ -135,6 +135,7 @@ TEST_CASE("database open_or_create migrates legacy ticker schema once")
     REQUIRE_EQ(all.size(), std::size_t{1});
     REQUIRE_EQ(all.front().ticker, std::string("LEGACY"));
     REQUIRE(!all.front().portfolio);
+    REQUIRE_EQ(all.front().type, 1);
 
     REQUIRE(database.toggle_ticker_portfolio("LEGACY", &err));
     REQUIRE(err.empty());
@@ -164,6 +165,7 @@ TEST_CASE("database open_or_create migrates legacy ticker schema once")
     REQUIRE_EQ(persisted.size(), std::size_t{1});
     REQUIRE_EQ(persisted.front().ticker, std::string("LEGACY"));
     REQUIRE(persisted.front().portfolio);
+    REQUIRE_EQ(persisted.front().type, 1);
 }
 
 TEST_CASE(
@@ -258,6 +260,55 @@ TEST_CASE("database add_finances and get_finances roundtrip nullable fields")
     REQUIRE_EQ(tickers.size(), std::size_t{1});
     REQUIRE_EQ(tickers.front().ticker, std::string("AAPL"));
     REQUIRE(tickers.front().last_update > 0);
+    REQUIRE_EQ(tickers.front().type, 1);
+}
+
+TEST_CASE("database stores ticker type and rejects mixed type periods")
+{
+    test::TempDir temp;
+    db::Database database;
+    open_test_db(database, temp.path());
+
+    db::Database::FinancePayload bank{};
+    bank.total_loans = 1000;
+    bank.goodwill = 50;
+    bank.total_assets = 5000;
+    bank.total_deposits = 4000;
+    bank.total_liabilities = 4500;
+    bank.net_interest_income = 120;
+    bank.non_interest_income = 30;
+    bank.loan_loss_provisions = 10;
+    bank.non_interest_expense = 90;
+    bank.net_income = 40;
+    bank.eps = 2.0;
+    bank.risk_weighted_assets = 3000;
+    bank.common_equity_tier1 = 360;
+    bank.net_charge_offs = 8;
+    bank.non_performing_loans = 20;
+
+    std::string err;
+    REQUIRE(database.add_finances("BANK", "2024-Y", bank, &err, 2));
+    REQUIRE(err.empty());
+
+    const auto tickers =
+        database.get_tickers(0,
+                             10,
+                             db::Database::TickerSortKey::Ticker,
+                             db::Database::SortDir::Asc,
+                             &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(tickers.size(), std::size_t{1});
+    REQUIRE_EQ(tickers.front().type, 2);
+
+    const auto rows = database.get_finances("BANK", &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(rows.size(), std::size_t{1});
+    REQUIRE_EQ(rows.front().total_loans, bank.total_loans);
+    REQUIRE_EQ(rows.front().common_equity_tier1, bank.common_equity_tier1);
+
+    err.clear();
+    REQUIRE(!database.add_finances("BANK", "2025-Y", make_payload(), &err, 1));
+    REQUIRE_CONTAINS(err, "ticker type mismatch");
 }
 
 TEST_CASE("database add_finances upserts existing period")

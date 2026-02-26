@@ -10,7 +10,8 @@ static constexpr const char* kSchemaSQL = R"SQL(
 CREATE TABLE IF NOT EXISTS tickers (
     ticker      TEXT    PRIMARY KEY,
     last_update INTEGER NOT NULL,
-    portfolio   INTEGER NOT NULL DEFAULT 0
+    portfolio   INTEGER NOT NULL DEFAULT 0,
+    type        INTEGER NOT NULL DEFAULT 1
 ) WITHOUT ROWID;
 
 CREATE INDEX IF NOT EXISTS idx_tickers_order ON tickers(last_update DESC, ticker ASC);
@@ -30,6 +31,19 @@ CREATE TABLE IF NOT EXISTS finances (
     current_liabilities         INTEGER,
     non_current_liabilities     INTEGER,
     net_income                  INTEGER,
+    total_loans                 INTEGER,
+    goodwill                    INTEGER,
+    total_assets                INTEGER,
+    total_deposits              INTEGER,
+    total_liabilities           INTEGER,
+    net_interest_income         INTEGER,
+    non_interest_income         INTEGER,
+    loan_loss_provisions        INTEGER,
+    non_interest_expense        INTEGER,
+    risk_weighted_assets        INTEGER,
+    common_equity_tier1         INTEGER,
+    net_charge_offs             INTEGER,
+    non_performing_loans        INTEGER,
     PRIMARY KEY (ticker, year, period_type),
     FOREIGN KEY (ticker) REFERENCES tickers(ticker) ON DELETE CASCADE
 ) WITHOUT ROWID;
@@ -71,12 +85,61 @@ static bool table_has_column(sqlite3* db,
     return found;
 }
 
+static void ensure_column_exists(sqlite3* db,
+                                 const char* table_name,
+                                 const char* column_name,
+                                 const char* definition_sql)
+{
+    if (table_has_column(db, table_name, column_name)) return;
+
+    const std::string sql = "ALTER TABLE " + std::string(table_name) +
+                            " ADD COLUMN " + std::string(definition_sql) + ";";
+    db::detail::exec_sql(db, sql.c_str());
+}
+
 static void ensure_tickers_portfolio_column(sqlite3* db)
 {
-    if (table_has_column(db, "tickers", "portfolio")) return;
-    db::detail::exec_sql(
-        db,
-        "ALTER TABLE tickers ADD COLUMN portfolio INTEGER NOT NULL DEFAULT 0;");
+    ensure_column_exists(
+        db, "tickers", "portfolio", "portfolio INTEGER NOT NULL DEFAULT 0");
+}
+
+static void ensure_tickers_type_column(sqlite3* db)
+{
+    ensure_column_exists(db, "tickers", "type", "type INTEGER NOT NULL DEFAULT 1");
+}
+
+static void ensure_finances_bank_columns(sqlite3* db)
+{
+    ensure_column_exists(db, "finances", "total_loans", "total_loans INTEGER");
+    ensure_column_exists(db, "finances", "goodwill", "goodwill INTEGER");
+    ensure_column_exists(db, "finances", "total_assets", "total_assets INTEGER");
+    ensure_column_exists(
+        db, "finances", "total_deposits", "total_deposits INTEGER");
+    ensure_column_exists(
+        db, "finances", "total_liabilities", "total_liabilities INTEGER");
+
+    ensure_column_exists(
+        db, "finances", "net_interest_income", "net_interest_income INTEGER");
+    ensure_column_exists(
+        db, "finances", "non_interest_income", "non_interest_income INTEGER");
+    ensure_column_exists(db,
+                         "finances",
+                         "loan_loss_provisions",
+                         "loan_loss_provisions INTEGER");
+    ensure_column_exists(db,
+                         "finances",
+                         "non_interest_expense",
+                         "non_interest_expense INTEGER");
+
+    ensure_column_exists(
+        db, "finances", "risk_weighted_assets", "risk_weighted_assets INTEGER");
+    ensure_column_exists(
+        db, "finances", "common_equity_tier1", "common_equity_tier1 INTEGER");
+
+    ensure_column_exists(
+        db, "finances", "net_charge_offs", "net_charge_offs INTEGER");
+    ensure_column_exists(
+        db, "finances", "non_performing_loans", "non_performing_loans INTEGER");
 }
 
 void Database::apply_schema_()
@@ -85,6 +148,8 @@ void Database::apply_schema_()
     try {
         db::detail::exec_sql(db_, kSchemaSQL);
         ensure_tickers_portfolio_column(db_);
+        ensure_tickers_type_column(db_);
+        ensure_finances_bank_columns(db_);
         db::detail::exec_sql(
             db_,
             "CREATE INDEX IF NOT EXISTS idx_tickers_portfolio "

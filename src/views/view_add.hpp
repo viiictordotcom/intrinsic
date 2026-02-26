@@ -34,6 +34,19 @@ enum class FieldKey {
     CfoOperations,
     CfiInvesting,
     CffFinancing,
+    TotalLoans,
+    Goodwill,
+    TotalAssets,
+    TotalDeposits,
+    TotalLiabilities,
+    NetInterestIncome,
+    NonInterestIncome,
+    LoanLossProvisions,
+    NonInterestExpense,
+    RiskWeightedAssets,
+    CommonEquityTier1,
+    NetChargeOffs,
+    NonPerformingLoans,
 };
 
 enum class ValueKind { Int64, Double, Text };
@@ -56,11 +69,24 @@ inline Constraint constraint_for_field(FieldKey key)
     case FieldKey::CurrentLiabilities:
     case FieldKey::NonCurrentLiabilities:
     case FieldKey::Revenue:
+    case FieldKey::TotalLoans:
+    case FieldKey::Goodwill:
+    case FieldKey::TotalAssets:
+    case FieldKey::TotalDeposits:
+    case FieldKey::TotalLiabilities:
+    case FieldKey::RiskWeightedAssets:
+    case FieldKey::CommonEquityTier1:
+    case FieldKey::NonPerformingLoans:
         return {ValueKind::Int64, 0.0, 1e14};
     case FieldKey::NetIncome:
     case FieldKey::CfoOperations:
     case FieldKey::CfiInvesting:
     case FieldKey::CffFinancing:
+    case FieldKey::NetInterestIncome:
+    case FieldKey::NonInterestIncome:
+    case FieldKey::LoanLossProvisions:
+    case FieldKey::NonInterestExpense:
+    case FieldKey::NetChargeOffs:
         return {ValueKind::Int64, -1e14, 1e14};
     case FieldKey::Eps:
         return {ValueKind::Double, -1e5, 1e5};
@@ -204,20 +230,41 @@ struct AddField {
     const char* label;
 };
 
-inline const std::vector<AddField>& add_fields()
+struct AddSection {
+    int field_index;
+    const char* title;
+};
+
+inline bool is_supported_add_ticker_type(int ticker_type)
 {
-    static const std::vector<AddField> f = {
+    return ticker_type == 1 || ticker_type == 2;
+}
+
+inline int normalize_add_ticker_type(int ticker_type)
+{
+    return is_supported_add_ticker_type(ticker_type) ? ticker_type : 1;
+}
+
+inline int next_add_ticker_type(int ticker_type)
+{
+    ticker_type = normalize_add_ticker_type(ticker_type);
+    return (ticker_type == 1) ? 2 : 1;
+}
+
+inline const std::vector<AddField>& add_fields_for_type(int ticker_type)
+{
+    static const std::vector<AddField> f_type1 = {
         {FieldKey::Ticker, "ticker"},
         {FieldKey::Period, "period"},
 
-        {FieldKey::CashAndEquivalents, "cash and equivalents"},
+        {FieldKey::CashAndEquivalents, "cash"},
         {FieldKey::CurrentAssets, "current assets"},
         {FieldKey::NonCurrentAssets, "non-current assets"},
-        {FieldKey::CurrentLiabilities, "current liabilities"},
-        {FieldKey::NonCurrentLiabilities, "non-current liabilities"},
+        {FieldKey::CurrentLiabilities, "current liab"},
+        {FieldKey::NonCurrentLiabilities, "non-current liab"},
 
         {FieldKey::Revenue, "revenue"},
-        {FieldKey::NetIncome, "net income"},
+        {FieldKey::NetIncome, "net inc"},
         {FieldKey::Eps, "eps"},
 
         {FieldKey::CfoOperations, "operations"},
@@ -225,23 +272,78 @@ inline const std::vector<AddField>& add_fields()
         {FieldKey::CffFinancing, "financing"},
     };
 
-    return f;
+    static const std::vector<AddField> f_type2 = {
+        {FieldKey::Ticker, "ticker"},
+        {FieldKey::Period, "period"},
+
+        {FieldKey::TotalLoans, "loans"},
+        {FieldKey::Goodwill, "goodwill"},
+        {FieldKey::TotalAssets, "assets"},
+        {FieldKey::TotalDeposits, "deposits"},
+        {FieldKey::TotalLiabilities, "liab"},
+
+        {FieldKey::NetInterestIncome, "nii"},
+        {FieldKey::NonInterestIncome, "non-int inc"},
+        {FieldKey::LoanLossProvisions, "llp"},
+        {FieldKey::NonInterestExpense, "non-int exp"},
+        {FieldKey::NetIncome, "net inc"},
+        {FieldKey::Eps, "eps"},
+
+        {FieldKey::RiskWeightedAssets, "rwa"},
+        {FieldKey::CommonEquityTier1, "cet1"},
+
+        {FieldKey::NetChargeOffs, "nco"},
+        {FieldKey::NonPerformingLoans, "npl"},
+    };
+
+    return normalize_add_ticker_type(ticker_type) == 2 ? f_type2 : f_type1;
 }
 
-inline int add_input_x()
+inline const std::vector<AddSection>& add_sections_for_type(int ticker_type)
 {
-    static const int x = [] {
-        const auto& fields = add_fields();
+    static const std::vector<AddSection> s_type1 = {
+        {2, "BALANCE"},
+        {7, "INCOME"},
+        {10, "CASH FLOW"},
+    };
 
+    static const std::vector<AddSection> s_type2 = {
+        {2, "BALANCE"},
+        {7, "INCOME"},
+        {13, "REGULATORY"},
+        {15, "OTHERS"},
+    };
+
+    return normalize_add_ticker_type(ticker_type) == 2 ? s_type2 : s_type1;
+}
+
+inline int add_input_x_for_type(int ticker_type)
+{
+    auto compute = [](const auto& fields) {
         std::size_t max_len = 0;
         for (const auto& f : fields) {
             if (f.label) max_len = std::max(max_len, std::strlen(f.label));
         }
-
-        // start of labels + longest label + cushion
         return kAddInputTab + static_cast<int>(max_len) + kAddInputCushion;
-    }();
-    return x;
+    };
+
+    static const int x1 = compute(add_fields_for_type(1));
+    static const int x2 = compute(add_fields_for_type(2));
+    return normalize_add_ticker_type(ticker_type) == 2 ? x2 : x1;
+}
+
+inline int add_input_x(const AppState& app)
+{
+    return add_input_x_for_type(app.add.ticker_type);
+}
+
+inline int add_field_index(int ticker_type, FieldKey key)
+{
+    const auto& fields = add_fields_for_type(ticker_type);
+    for (int i = 0; i < static_cast<int>(fields.size()); ++i) {
+        if (fields[static_cast<std::size_t>(i)].key == key) return i;
+    }
+    return -1;
 }
 
 inline std::string format_double_3(double x)
@@ -296,50 +398,104 @@ inline void clamp_add_index(AppState& app, int field_count)
     if (app.add.index >= field_count) app.add.index = field_count - 1;
 }
 
+inline void reset_add_form_for_type(AppState& app,
+                                    int ticker_type,
+                                    bool ticker_type_locked,
+                                    AddMode mode)
+{
+    ticker_type = normalize_add_ticker_type(ticker_type);
+    app.add.reset(static_cast<int>(add_fields_for_type(ticker_type).size()));
+    app.add.mode = mode;
+    app.add.ticker_type = ticker_type;
+    app.add.ticker_type_locked = ticker_type_locked;
+}
+
 inline void open_add_create(AppState& app)
 {
-    app.add.reset(static_cast<int>(add_fields().size()));
-    app.add.mode = AddMode::Create;
+    reset_add_form_for_type(app, 1, false, AddMode::Create);
     app.current = views::ViewId::Add;
 }
 
 inline void open_add_prefilled_from_ticker(AppState& app,
                                            const db::Database::FinanceRow& row)
 {
-    app.add.reset(static_cast<int>(add_fields().size()));
+    const int ticker_type = normalize_add_ticker_type(app.ticker_view.ticker_type);
+    reset_add_form_for_type(app, ticker_type, true, AddMode::EditFromTicker);
     // Edit mode reuses the add form with fields prefilled from the selected
     // period.
-    app.add.mode = AddMode::EditFromTicker;
+    auto set_buffer = [&](FieldKey key, const std::string& value) {
+        const int idx = add_field_index(app.add.ticker_type, key);
+        if (idx >= 0) app.add.buffers[static_cast<std::size_t>(idx)] = value;
+    };
 
-    app.add.buffers[0] = row.ticker;
-    app.add.buffers[1] = add_period_label(row);
-    app.add.buffers[2] = opt_i64_to_input(row.cash_and_equivalents);
-    app.add.buffers[3] = opt_i64_to_input(row.current_assets);
-    app.add.buffers[4] = opt_i64_to_input(row.non_current_assets);
-    app.add.buffers[5] = opt_i64_to_input(row.current_liabilities);
-    app.add.buffers[6] = opt_i64_to_input(row.non_current_liabilities);
-    app.add.buffers[7] = opt_i64_to_input(row.revenue);
-    app.add.buffers[8] = opt_i64_to_input(row.net_income);
-    app.add.buffers[9] = opt_f64_to_input(row.eps);
-    app.add.buffers[10] = opt_i64_to_input(row.cash_flow_from_operations);
-    app.add.buffers[11] = opt_i64_to_input(row.cash_flow_from_investing);
-    app.add.buffers[12] = opt_i64_to_input(row.cash_flow_from_financing);
+    set_buffer(FieldKey::Ticker, row.ticker);
+    set_buffer(FieldKey::Period, add_period_label(row));
+
+    if (app.add.ticker_type == 2) {
+        set_buffer(FieldKey::TotalLoans, opt_i64_to_input(row.total_loans));
+        set_buffer(FieldKey::Goodwill, opt_i64_to_input(row.goodwill));
+        set_buffer(FieldKey::TotalAssets, opt_i64_to_input(row.total_assets));
+        set_buffer(FieldKey::TotalDeposits, opt_i64_to_input(row.total_deposits));
+        set_buffer(FieldKey::TotalLiabilities,
+                   opt_i64_to_input(row.total_liabilities));
+        set_buffer(FieldKey::NetInterestIncome,
+                   opt_i64_to_input(row.net_interest_income));
+        set_buffer(FieldKey::NonInterestIncome,
+                   opt_i64_to_input(row.non_interest_income));
+        set_buffer(FieldKey::LoanLossProvisions,
+                   opt_i64_to_input(row.loan_loss_provisions));
+        set_buffer(FieldKey::NonInterestExpense,
+                   opt_i64_to_input(row.non_interest_expense));
+        set_buffer(FieldKey::NetIncome, opt_i64_to_input(row.net_income));
+        set_buffer(FieldKey::Eps, opt_f64_to_input(row.eps));
+        set_buffer(FieldKey::RiskWeightedAssets,
+                   opt_i64_to_input(row.risk_weighted_assets));
+        set_buffer(FieldKey::CommonEquityTier1,
+                   opt_i64_to_input(row.common_equity_tier1));
+        set_buffer(FieldKey::NetChargeOffs, opt_i64_to_input(row.net_charge_offs));
+        set_buffer(FieldKey::NonPerformingLoans,
+                   opt_i64_to_input(row.non_performing_loans));
+    }
+    else {
+        set_buffer(FieldKey::CashAndEquivalents,
+                   opt_i64_to_input(row.cash_and_equivalents));
+        set_buffer(FieldKey::CurrentAssets, opt_i64_to_input(row.current_assets));
+        set_buffer(FieldKey::NonCurrentAssets,
+                   opt_i64_to_input(row.non_current_assets));
+        set_buffer(FieldKey::CurrentLiabilities,
+                   opt_i64_to_input(row.current_liabilities));
+        set_buffer(FieldKey::NonCurrentLiabilities,
+                   opt_i64_to_input(row.non_current_liabilities));
+        set_buffer(FieldKey::Revenue, opt_i64_to_input(row.revenue));
+        set_buffer(FieldKey::NetIncome, opt_i64_to_input(row.net_income));
+        set_buffer(FieldKey::Eps, opt_f64_to_input(row.eps));
+        set_buffer(FieldKey::CfoOperations,
+                   opt_i64_to_input(row.cash_flow_from_operations));
+        set_buffer(FieldKey::CfiInvesting,
+                   opt_i64_to_input(row.cash_flow_from_investing));
+        set_buffer(FieldKey::CffFinancing,
+                   opt_i64_to_input(row.cash_flow_from_financing));
+    }
 
     app.current = views::ViewId::Add;
 }
 
 inline void ensure_add_initialized(AppState& app)
 {
-    const int field_count = static_cast<int>(add_fields().size());
+    app.add.ticker_type = normalize_add_ticker_type(app.add.ticker_type);
+    const int field_count =
+        static_cast<int>(add_fields_for_type(app.add.ticker_type).size());
     if (!app.add.active) {
-        app.add.reset(field_count);
+        reset_add_form_for_type(
+            app, app.add.ticker_type, app.add.ticker_type_locked, app.add.mode);
         return;
     }
 
     if (static_cast<int>(app.add.buffers.size()) != field_count ||
         static_cast<int>(app.add.values.size()) != field_count ||
         static_cast<int>(app.add.layout_y.size()) != field_count) {
-        app.add.reset(field_count);
+        reset_add_form_for_type(
+            app, app.add.ticker_type, app.add.ticker_type_locked, app.add.mode);
         app.add.active = true;
     }
 }
@@ -456,6 +612,60 @@ inline bool validate_add_form(const std::vector<AddField>& fields,
     return true;
 }
 
+inline std::optional<std::string> add_ticker_buffer(const AppState& app)
+{
+    const int idx = add_field_index(app.add.ticker_type, FieldKey::Ticker);
+    if (idx < 0 || idx >= static_cast<int>(app.add.buffers.size()))
+        return std::nullopt;
+    return app.add.buffers[static_cast<std::size_t>(idx)];
+}
+
+inline bool sync_add_type_lock_from_ticker(AppState& app)
+{
+    if (app.add.mode != AddMode::Create) return true;
+
+    const auto ticker_buf = add_ticker_buffer(app);
+    if (!ticker_buf.has_value() || ticker_buf->empty()) {
+        app.add.ticker_type_locked = false;
+        return true;
+    }
+
+    std::string err;
+    const auto db_type = app.db->get_ticker_type(*ticker_buf, &err);
+    if (!err.empty()) {
+        route_error(app, err);
+        return true;
+    }
+
+    if (!db_type.has_value()) {
+        app.add.ticker_type_locked = false;
+        return true;
+    }
+
+    const int locked_type = normalize_add_ticker_type(*db_type);
+    if (locked_type == app.add.ticker_type) {
+        app.add.ticker_type_locked = true;
+        return true;
+    }
+
+    const std::string keep_ticker = *ticker_buf;
+    reset_add_form_for_type(app, locked_type, true, AddMode::Create);
+    const int ticker_idx = add_field_index(app.add.ticker_type, FieldKey::Ticker);
+    if (ticker_idx >= 0) {
+        app.add.buffers[static_cast<std::size_t>(ticker_idx)] = keep_ticker;
+        app.add.index = ticker_idx;
+        app.add.cursor = static_cast<int>(keep_ticker.size());
+    }
+    return true;
+}
+
+inline void cycle_add_type_and_clear(AppState& app)
+{
+    if (app.add.mode != AddMode::Create || app.add.ticker_type_locked) return;
+    const int next_type = next_add_ticker_type(app.add.ticker_type);
+    reset_add_form_for_type(app, next_type, false, AddMode::Create);
+}
+
 inline void render_add(AppState& app);
 
 inline void flash_add_invalid_marker(AppState& app, int input_x)
@@ -478,8 +688,9 @@ inline void render_add(AppState& app)
 
     erase();
 
-    const int input_x = add_input_x();
-    const auto& fields = add_fields();
+    const int input_x = add_input_x(app);
+    const auto& fields = add_fields_for_type(app.add.ticker_type);
+    const auto& sections = add_sections_for_type(app.add.ticker_type);
     clamp_add_index(app, static_cast<int>(fields.size()));
 
     int y = 0;
@@ -488,7 +699,11 @@ inline void render_add(AppState& app)
 
     std::vector<int> logical_field_y(fields.size(), 0);
     for (int i = 0; i < (int)fields.size(); ++i) {
-        if (i == 2 || i == 7 || i == 10) y += 2; // spacer + section title
+        const auto section_it =
+            std::find_if(sections.begin(), sections.end(), [&](const auto& s) {
+                return s.field_index == i;
+            });
+        if (section_it != sections.end()) y += 2; // spacer + section title
         logical_field_y[i] = y;
         y += 1;
     }
@@ -518,28 +733,36 @@ inline void render_add(AppState& app)
     int logical_y = 0;
     int screen_y = to_screen_y(logical_y);
     if (screen_y >= 0 && screen_y < viewport) {
-        const char* suffix =
+        std::string suffix =
             (app.add.mode == AddMode::EditFromTicker) ? " edit" : " add";
+        suffix += (app.add.ticker_type == 2) ? " t2" : " t1";
+        if (app.add.mode == AddMode::Create && !app.add.ticker_type_locked) {
+            suffix += " [tab]";
+        }
+        else if (app.add.ticker_type_locked) {
+            suffix += " [lock]";
+        }
         if (has_colors()) attron(COLOR_PAIR(3));
         attron(A_BOLD);
         mvprintw(screen_y, 0, "intrinsic ~");
         attroff(A_BOLD);
         if (has_colors()) attroff(COLOR_PAIR(3));
-        if (COLS > 11) mvprintw(screen_y, 11, "%s", suffix);
+        if (COLS > 11) mvprintw(screen_y, 11, "%s", suffix.c_str());
     }
     logical_y += 2;
 
     const int label_w = std::max(1, input_x - kAddInputTab - kAddInputCushion);
 
     for (int i = 0; i < (int)fields.size(); ++i) {
-        if (i == 2 || i == 7 || i == 10) {
+        const auto section_it =
+            std::find_if(sections.begin(), sections.end(), [&](const auto& s) {
+                return s.field_index == i;
+            });
+        if (section_it != sections.end()) {
             logical_y += 1;
             screen_y = to_screen_y(logical_y);
             if (screen_y >= 0 && screen_y < viewport) {
-                const char* title = (i == 2)   ? "BALANCE"
-                                    : (i == 7) ? "INCOME"
-                                               : "CASH FLOW";
-                mvprintw(screen_y, 0, "%s", title);
+                mvprintw(screen_y, 0, "%s", section_it->title);
             }
             logical_y += 1;
         }
@@ -560,6 +783,8 @@ inline void render_add(AppState& app)
     }
 
     logical_y += 1;
+    int desired_cursor_y = -1;
+    int desired_cursor_x = 0;
     if (app.add.confirming) {
         screen_y = to_screen_y(logical_y);
         if (screen_y >= 0 && screen_y < viewport) {
@@ -572,19 +797,49 @@ inline void render_add(AppState& app)
     }
     else {
         const int line_y = app.add.layout_y[app.add.index];
-        const int cursor_x = input_x + app.add.cursor;
+        const int cursor_x = std::min(input_x + app.add.cursor, std::max(0, COLS - 1));
         if (line_y >= 0 && line_y < viewport) {
-            move(line_y, std::min(cursor_x, std::max(0, COLS - 1)));
+            desired_cursor_y = line_y;
+            desired_cursor_x = cursor_x;
         }
         curs_set(1);
     }
 
+    int bottom_status_y = -1;
     if (total_lines > LINES && LINES > 0) {
         mvprintw(LINES - 1,
                  0,
                  "auto-scroll (%d/%d)",
                  app.add.scroll + 1,
                  max_scroll + 1);
+        bottom_status_y = LINES - 1;
+    }
+
+    if (LINES > 0 && total_lines < LINES) {
+        const int hint_y =
+            (bottom_status_y == LINES - 1) ? (LINES - 2) : (LINES - 1);
+        if (hint_y >= 0) {
+            std::string hint = "enter: confirm   esc: cancel";
+            if (app.add.mode == AddMode::Create) {
+                if (app.add.ticker_type_locked) {
+                    hint += "   tab: locked by ticker";
+                }
+                else {
+                    hint += "   tab: switch type";
+                }
+            }
+            else {
+                hint += "   type: locked";
+            }
+            attron(A_DIM);
+            mvprintw(hint_y, 0, "%.*s", std::max(0, COLS - 1), hint.c_str());
+            attroff(A_DIM);
+        }
+    }
+
+    // Move the cursor after drawing hints/status so it stays on the active input.
+    if (!app.add.confirming && desired_cursor_y >= 0 && desired_cursor_y < viewport) {
+        move(desired_cursor_y, desired_cursor_x);
     }
 
     wnoutrefresh(stdscr);
@@ -612,12 +867,19 @@ inline std::optional<std::string> as_str_opt(const AddState::OptValue& v)
     return std::get<std::string>(*v);
 }
 
+inline const AddState::OptValue* add_value_for_key(const AppState& app, FieldKey key)
+{
+    const int idx = add_field_index(app.add.ticker_type, key);
+    if (idx < 0 || idx >= static_cast<int>(app.add.values.size())) return nullptr;
+    return &app.add.values[static_cast<std::size_t>(idx)];
+}
+
 inline bool handle_key_add(AppState& app, int ch)
 {
     ensure_add_initialized(app);
 
-    const int input_x = add_input_x();
-    const auto& fields = add_fields();
+    const int input_x = add_input_x(app);
+    const auto& fields = add_fields_for_type(app.add.ticker_type);
     clamp_add_index(app, static_cast<int>(fields.size()));
     clamp_add_cursor(app);
 
@@ -631,29 +893,74 @@ inline bool handle_key_add(AppState& app, int ch)
 
     if (app.add.confirming) {
         if (ch == 'y' || ch == 'Y') {
-            auto ticker_opt = as_str_opt(app.add.values[0]);
-            auto period_opt = as_str_opt(app.add.values[1]);
+            const AddState::OptValue* ticker_v =
+                add_value_for_key(app, FieldKey::Ticker);
+            const AddState::OptValue* period_v =
+                add_value_for_key(app, FieldKey::Period);
+            auto ticker_opt = ticker_v ? as_str_opt(*ticker_v) : std::nullopt;
+            auto period_opt = period_v ? as_str_opt(*period_v) : std::nullopt;
             if (!ticker_opt || !period_opt) {
                 route_error(app, "ticker/period missing");
                 return true;
             }
 
             db::Database::FinancePayload payload{};
-            payload.cash_and_equivalents = as_i64_opt(app.add.values[2]);
-            payload.current_assets = as_i64_opt(app.add.values[3]);
-            payload.non_current_assets = as_i64_opt(app.add.values[4]);
-            payload.current_liabilities = as_i64_opt(app.add.values[5]);
-            payload.non_current_liabilities = as_i64_opt(app.add.values[6]);
-            payload.revenue = as_i64_opt(app.add.values[7]);
-            payload.net_income = as_i64_opt(app.add.values[8]);
-            payload.eps = as_f64_opt(app.add.values[9]);
-            payload.cash_flow_from_operations = as_i64_opt(app.add.values[10]);
-            payload.cash_flow_from_investing = as_i64_opt(app.add.values[11]);
-            payload.cash_flow_from_financing = as_i64_opt(app.add.values[12]);
+            auto i64_for = [&](FieldKey key) -> std::optional<std::int64_t> {
+                const AddState::OptValue* v = add_value_for_key(app, key);
+                return v ? as_i64_opt(*v) : std::nullopt;
+            };
+            auto f64_for = [&](FieldKey key) -> std::optional<double> {
+                const AddState::OptValue* v = add_value_for_key(app, key);
+                return v ? as_f64_opt(*v) : std::nullopt;
+            };
+
+            payload.net_income = i64_for(FieldKey::NetIncome);
+            payload.eps = f64_for(FieldKey::Eps);
+
+            if (app.add.ticker_type == 2) {
+                payload.total_loans = i64_for(FieldKey::TotalLoans);
+                payload.goodwill = i64_for(FieldKey::Goodwill);
+                payload.total_assets = i64_for(FieldKey::TotalAssets);
+                payload.total_deposits = i64_for(FieldKey::TotalDeposits);
+                payload.total_liabilities = i64_for(FieldKey::TotalLiabilities);
+                payload.net_interest_income =
+                    i64_for(FieldKey::NetInterestIncome);
+                payload.non_interest_income =
+                    i64_for(FieldKey::NonInterestIncome);
+                payload.loan_loss_provisions =
+                    i64_for(FieldKey::LoanLossProvisions);
+                payload.non_interest_expense =
+                    i64_for(FieldKey::NonInterestExpense);
+                payload.risk_weighted_assets =
+                    i64_for(FieldKey::RiskWeightedAssets);
+                payload.common_equity_tier1 =
+                    i64_for(FieldKey::CommonEquityTier1);
+                payload.net_charge_offs = i64_for(FieldKey::NetChargeOffs);
+                payload.non_performing_loans =
+                    i64_for(FieldKey::NonPerformingLoans);
+            }
+            else {
+                payload.cash_and_equivalents =
+                    i64_for(FieldKey::CashAndEquivalents);
+                payload.current_assets = i64_for(FieldKey::CurrentAssets);
+                payload.non_current_assets =
+                    i64_for(FieldKey::NonCurrentAssets);
+                payload.current_liabilities =
+                    i64_for(FieldKey::CurrentLiabilities);
+                payload.non_current_liabilities =
+                    i64_for(FieldKey::NonCurrentLiabilities);
+                payload.revenue = i64_for(FieldKey::Revenue);
+                payload.cash_flow_from_operations =
+                    i64_for(FieldKey::CfoOperations);
+                payload.cash_flow_from_investing =
+                    i64_for(FieldKey::CfiInvesting);
+                payload.cash_flow_from_financing =
+                    i64_for(FieldKey::CffFinancing);
+            }
 
             std::string err;
             if (!app.db->add_finances(
-                    *ticker_opt, *period_opt, payload, &err)) {
+                    *ticker_opt, *period_opt, payload, &err, app.add.ticker_type)) {
                 route_error(app, err);
                 return true;
             }
@@ -672,7 +979,8 @@ inline bool handle_key_add(AppState& app, int ch)
                     return true;
                 }
 
-                app.ticker_view.reset(*ticker_opt, std::move(refreshed));
+                app.ticker_view.reset(
+                    *ticker_opt, std::move(refreshed), app.add.ticker_type);
                 const int idx =
                     add_find_period_index(app.ticker_view.rows, *period_opt);
                 if (idx >= 0) app.ticker_view.index = idx;
@@ -698,6 +1006,15 @@ inline bool handle_key_add(AppState& app, int ch)
     const int BACKSPACE_1 = KEY_BACKSPACE;
     const int BACKSPACE_2 = 127;
     const int BACKSPACE_3 = 8;
+
+    if (ch == '\t'
+#ifdef KEY_BTAB
+        || ch == KEY_BTAB
+#endif
+    ) {
+        cycle_add_type_and_clear(app);
+        return true;
+    }
 
     if (ch == KEY_UP) {
         if (app.add.index > 0) app.add.index -= 1;
@@ -726,29 +1043,27 @@ inline bool handle_key_add(AppState& app, int ch)
     }
 
     if (ch == BACKSPACE_1 || ch == BACKSPACE_2 || ch == BACKSPACE_3) {
+        const auto key = fields[static_cast<std::size_t>(app.add.index)].key;
         auto& current =
             app.add.buffers[static_cast<std::size_t>(app.add.index)];
         if (app.add.cursor > 0 && !current.empty()) {
             current.erase(static_cast<std::size_t>(app.add.cursor - 1), 1);
             app.add.cursor -= 1;
-            normalize_field_buffer(
-                fields[static_cast<std::size_t>(app.add.index)].key,
-                current,
-                &app.add.cursor);
+            normalize_field_buffer(key, current, &app.add.cursor);
+            if (key == FieldKey::Ticker) return sync_add_type_lock_from_ticker(app);
         }
         return true;
     }
 
     if (ch == KEY_DC) {
+        const auto key = fields[static_cast<std::size_t>(app.add.index)].key;
         auto& current =
             app.add.buffers[static_cast<std::size_t>(app.add.index)];
         if (app.add.cursor >= 0 &&
             app.add.cursor < static_cast<int>(current.size())) {
             current.erase(static_cast<std::size_t>(app.add.cursor), 1);
-            normalize_field_buffer(
-                fields[static_cast<std::size_t>(app.add.index)].key,
-                current,
-                &app.add.cursor);
+            normalize_field_buffer(key, current, &app.add.cursor);
+            if (key == FieldKey::Ticker) return sync_add_type_lock_from_ticker(app);
         }
         return true;
     }
@@ -781,6 +1096,7 @@ inline bool handle_key_add(AppState& app, int ch)
             static_cast<std::size_t>(app.add.cursor), 1, static_cast<char>(ch));
         app.add.cursor += 1;
         normalize_field_buffer(key, current, &app.add.cursor);
+        if (key == FieldKey::Ticker) return sync_add_type_lock_from_ticker(app);
         return true;
     }
 
@@ -789,4 +1105,3 @@ inline bool handle_key_add(AppState& app, int ch)
 }
 
 } // namespace views
-

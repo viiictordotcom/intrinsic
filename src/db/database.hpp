@@ -22,6 +22,7 @@ public:
         std::string ticker;
         std::int64_t last_update = 0;
         bool portfolio = false;
+        int type = 1;
     };
 
     enum class TickerSortKey { Ticker, LastUpdate };
@@ -43,6 +44,23 @@ public:
         std::optional<std::int64_t> current_liabilities;
         std::optional<std::int64_t> non_current_liabilities;
         std::optional<std::int64_t> net_income;
+
+        std::optional<std::int64_t> total_loans;
+        std::optional<std::int64_t> goodwill;
+        std::optional<std::int64_t> total_assets;
+        std::optional<std::int64_t> total_deposits;
+        std::optional<std::int64_t> total_liabilities;
+
+        std::optional<std::int64_t> net_interest_income;
+        std::optional<std::int64_t> non_interest_income;
+        std::optional<std::int64_t> loan_loss_provisions;
+        std::optional<std::int64_t> non_interest_expense;
+
+        std::optional<std::int64_t> risk_weighted_assets;
+        std::optional<std::int64_t> common_equity_tier1;
+
+        std::optional<std::int64_t> net_charge_offs;
+        std::optional<std::int64_t> non_performing_loans;
     };
 
     struct FinancePayload {
@@ -57,6 +75,23 @@ public:
         std::optional<std::int64_t> current_liabilities;
         std::optional<std::int64_t> non_current_liabilities;
         std::optional<std::int64_t> net_income;
+
+        std::optional<std::int64_t> total_loans;
+        std::optional<std::int64_t> goodwill;
+        std::optional<std::int64_t> total_assets;
+        std::optional<std::int64_t> total_deposits;
+        std::optional<std::int64_t> total_liabilities;
+
+        std::optional<std::int64_t> net_interest_income;
+        std::optional<std::int64_t> non_interest_income;
+        std::optional<std::int64_t> loan_loss_provisions;
+        std::optional<std::int64_t> non_interest_expense;
+
+        std::optional<std::int64_t> risk_weighted_assets;
+        std::optional<std::int64_t> common_equity_tier1;
+
+        std::optional<std::int64_t> net_charge_offs;
+        std::optional<std::int64_t> non_performing_loans;
     };
 
 public:
@@ -99,10 +134,14 @@ public:
     bool add_finances(const std::string& ticker,
                       const std::string& period,
                       const FinancePayload& payload,
-                      std::string* err = nullptr);
+                      std::string* err = nullptr,
+                      int ticker_type = 1);
 
     std::vector<FinanceRow> get_finances(const std::string& ticker,
                                          std::string* err = nullptr);
+
+    std::optional<int> get_ticker_type(const std::string& ticker,
+                                       std::string* err = nullptr);
 
 private:
     static std::filesystem::path default_db_path_();
@@ -118,4 +157,3 @@ private:
 };
 
 } // namespace db
-

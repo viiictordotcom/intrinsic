@@ -128,7 +128,7 @@ inline bool open_selected_home_ticker(AppState& app)
         return true;
     }
 
-    app.ticker_view.reset(ticker, std::move(finances));
+    app.ticker_view.reset(ticker, std::move(finances), rows[app.tickers.selected].type);
     app.current = views::ViewId::Ticker;
     return true;
 }

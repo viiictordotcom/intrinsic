@@ -235,7 +235,7 @@ inline void render_settings(const AppState& app)
                 y, 2, "N  nuke      : initiate final sequence (press N again)");
         }
         else {
-            mvprintw(y, 2, "N  nuke      : initiate self-destruct (all data)");
+            mvprintw(y, 2, "N  nuke      : initiate self-destruct");
         }
     }
 

@@ -19,21 +19,25 @@ inline void render_help(AppState&)
         if (COLS > 11) mvprintw(0, 11, " help");
     }
 
-    static constexpr std::array<const char*, 14> lines = {
+    static constexpr std::array<const char*, 18> lines = {
         "q  - quit",
         "h  - home",
         "?  - help",
         "s  - settings",
         "",
         "a  - add mode",
-        "p  - mark/unmark portfolio ticker (home)",
-        "P  - show all or only portfolio tickers (home)",
+        "tab  - switch add form type",
+        "",
+        "p  - mark/unmark portfolio ticker",
+        "P  - show all or only portfolio tickers",
         "space  - search mode",
+        "",
         "esc  - exit search/add mode",
         "",
         "x  - delete period",
         "e  - edit period",
         "c  - copy period data",
+        "y  - toggle yearly/all periods",
     };
 
     const int start_y = 2;

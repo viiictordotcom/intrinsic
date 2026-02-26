@@ -94,6 +94,7 @@ Ticker view:
 
 Add/Edit view:
 - `arrow keys`: move field/cursor
+- `tab`: switch add form type (`t1` / `t2`) for new tickers
 - `enter`: validate and open confirm prompt
 - `y` / `n`: confirm or cancel write
 - `esc`: cancel and return
@@ -108,22 +109,12 @@ Settings view:
 
 ## Inputs
 
-Required:
-- `ticker`
-- `period`
+### Ticker types
 
-Can be submitted empty:
-- `cash and equivalents`
-- `current assets`
-- `non-current assets`
-- `current liabilities`
-- `non-current liabilities`
-- `revenue`
-- `net income`
-- `eps`
-- `operations`
-- `investing`
-- `financing`
+- `type 1` (default): current/general company structure (balance + income + cash flow).
+- `type 2`: bank structure (loans/deposits/regulatory/asset quality).
+- Ticker type is stored per ticker and cannot be mixed across periods.
+- In `Add` view, `Tab` switches type only for new tickers; existing tickers auto-lock to their saved type.
 
 Ticker field:
 - Normalized to uppercase
@@ -150,10 +141,10 @@ Metrics are shown for the selected period in Ticker view.
 - For `Q*` periods, TTM uses the sum of the latest 4 quarterly values.
 - For `S*` periods, TTM uses the sum of the latest 2 semiannual values.
 - For `Y` periods, TTM does not apply (yearly values are already full-year).
-- TTM is applied to `EPS`, `Net Profit`, and `CFop` inputs used by derived metrics.
+- TTM is applied to `EPS`, `Net Income`, and `CFop` inputs used by derived metrics.
 - With `TTM on`, valuation/derived metrics are smoothed when enough valid history exists.
 - With `TTM off`, metrics use only the selected period values.
-- With `TTM off` on quarterly/semiannual data, metrics can look more volatile or seasonally distorted (for example temporarily higher/lower `P / E`, `EV / NP`, `EV / CFop`, and `Score`).
+- With `TTM off` on quarterly/semiannual data, metrics can look more volatile or seasonally distorted (for example temporarily higher/lower `P / E`, `EV / NI`, and `EV / CFop`).
 - If TTM is on but the required history is incomplete/invalid, the app falls back to the selected period values.
 
 ### Change values (`... %`)
@@ -165,10 +156,10 @@ Metrics are shown for the selected period in Ticker view.
     - If both values are negative, an improvement is shown when absolute value gets smaller.
     - If previous is negative and current is positive, change is shown as a positive crossover.
     - Otherwise, standard ratio delta is used: `((current - previous) / previous) * 100`.
-- For valuation multiples where lower is better (`P / E`, `P / BV`, `EVcap`, `EV / CFop`, `EV / NP`), change coloring is inverted in UI.
-- `p needed` and `NP needed` are not YoY metrics:
-- `p needed` change is relative to the typed `price`.
-- `NP needed` change is relative to current/TTM net profit baseline.
+- For valuation multiples where lower is better (`P / E`, `P / BV`, `P / TBV`, `EVcap`, `EV / CFop`, `EV / NI`), change coloring is inverted in UI.
+- `P needed` and `NI needed` are not YoY metrics:
+- `P needed` change is relative to the typed `price`.
+- `NI needed` change is relative to current/TTM net income baseline.
 
 ### Input fields
 
@@ -179,21 +170,22 @@ Metrics are shown for the selected period in Ticker view.
 
 ### Input-related metrics
 
-- `Score`: composite valuation score from `EV / CFop`, `P / E`, and `P / BV` (details below).
-- `p needed`: `round(wished per * eps_used)`. In TTM mode, `eps_used` is TTM EPS when available for `Q*`/`S*`, otherwise period EPS.
-- `NP needed`: required net profit implied by current `price` and `wished per`.
+- `P needed`: `round(wished per * eps_used)`. In TTM mode, `eps_used` is TTM EPS when available for `Q*`/`S*`, otherwise period EPS.
+- `NI needed`: `required_eps * shares_used`, where `required_eps = price / wished per` and `shares_used = ni_used / eps_used` (TTM-aware when enabled).
 
-### Glossary
+### Data
+
+<details>
+<summary><strong>Type 1</strong></summary>
 
 - `P / E`: price-to-earnings
 - `P / BV`: price-to-book value
 - `EV`: enterprise value
 - `EVcap`: `EV / market cap`
 - `EV / CFop`: `EV / cash flow from operations`
-- `EV / NP`: `EV / net profit`
-- `Score`: valuation score from ratio mix below
-- `p needed`: price implied by `wished per` and EPS
-- `NP needed`: net profit needed for current `price` at `wished per`
+- `EV / NI`: `EV / net income`
+- `P needed`: price implied by `wished per` and EPS
+- `NI needed`: net income needed for current `price` at `wished per`
 - `CA`: current assets
 - `Cash`: cash and equivalents
 - `NCA`: non-current assets
@@ -204,7 +196,7 @@ Metrics are shown for the selected period in Ticker view.
 - `E`: equity (`TA - TL`)
 - `WC`: working capital (`CA - CL`)
 - `WC / NCL`: working capital to non-current liabilities
-- `Shs~`: approximate shares (`net profit / EPS`, rounded)
+- `Shs~`: approximate shares (`net income / EPS`, rounded)
 - `BV`: book value per share (`equity / Shs~`)
 - `Liq.`: liquidity (`CA / CL`)
 - `Sol.`: solvency (`TA / TL`)
@@ -213,35 +205,49 @@ Metrics are shown for the selected period in Ticker view.
 - `CFinv`: cash flow from investing
 - `CFfin`: cash flow from financing
 - `R`: revenue
-- `NP`: net profit
+- `NI`: net income
 - `EPS`: earnings per share
-- `Mnet`: net margin (`NP / R`)
-- `ROA`: return on assets (`NP / TA`)
-- `ROE`: return on equity (`NP / E`)
+- `Mnet`: net margin (`NI / R`)
+- `ROA`: return on assets (`NI / TA`)
+- `ROE`: return on equity (`NI / E`)
 
-### Score
+</details>
 
 <details>
-<summary><strong>Score</strong> is determined as follows:</summary>
+<summary><strong>Type 2</strong></summary>
 
-Base conditions:
-
-- **NA**: if `price` is not valid, or `Net Profit`, `Shs~`, `EV` (via `EVcap`), or `P/BV` are not valid
-- **0**: if `EPS <= 0` or `BV <= 0` or `Operating CF <= 0` or `Net Profit <= 0`
-- **10**: if none of the above are met and `EV <= 0`
-- Otherwise: `Score = W1*R1 + W2*R2 + W3*R3`
-
-Ratios:
-
-- `R1 = 10 * (1 - (EV/OCF)/50)`, if `EV/OCF < 50`, else `0`
-- `R2 = 10 * (1 - (P/E)/50)`, if `P/E < 50`, else `0`
-- `R3 = 10 * (1 - (P/BV)/20)`, if `P/BV < 20`, else `0`
-
-Weights:
-
-| Case | W1 (EV/OCF) | W2 (P/E) | W3 (P/BV) |
-| --- | --- | --- | --- |
-| All ratios available | 0.4 | 0.3 | 0.3 |
-| EV/OCF not available | - | 0.5 | 0.5 |
+- `P / E`: price-to-earnings
+- `P / TBV`: price-to-tangible-book-value
+- `TBV`: tangible book value per share (derived from `TE` and internal approximate shares)
+- `P needed`: price implied by `wished per` and EPS
+- `NI needed`: net income needed for current `price` at `wished per`
+- `TA`: total assets
+- `TL`: total liabilities
+- `Loans`: total loans
+- `Deposits`: total deposits
+- `Goodwill`: goodwill
+- `Loans / Dep.`: loan-to-deposit ratio
+- `E`: equity (`TA - TL`)
+- `TE`: tangible equity (`E - Goodwill`)
+- `Lev.`: leverage (`TA / TE`)
+- `NII`: net interest income
+- `NonII`: non-interest income
+- `NIExp`: non-interest expense
+- `PPOP`: pre-provision profit (`NII + NonII - NIExp`)
+- `LLP`: loan loss provisions
+- `Prov / PPOP`: `LLP / PPOP`
+- `NI`: net income
+- `EPS`: earnings per share
+- `ROA`: `NI / TA`
+- `ROTE`: `NI / TE`
+- `PPOP / A`: `PPOP / TA`
+- `RWA`: risk-weighted assets
+- `CET1`: common equity tier 1 capital
+- `NPL`: non-performing loans
+- `NCO`: net charge-offs
+- `NPL%`: `NPL / Loans`
+- `NCO%`: `NCO / Loans`
+- `Prov%`: `LLP / Loans`
+- `CET1%`: `CET1 / RWA`
 
 </details>

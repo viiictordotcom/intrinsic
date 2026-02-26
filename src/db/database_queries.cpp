@@ -119,6 +119,14 @@ static std::pair<int, std::string> parse_period(const std::string& period)
     return {year, std::move(period_type)};
 }
 
+static int normalize_ticker_type(int ticker_type)
+{
+    if (ticker_type < 1 || ticker_type > 9) {
+        throw std::runtime_error("ticker type out of range (expected 1-9)");
+    }
+    return ticker_type;
+}
+
 template <class Fn>
 static bool in_transaction(sqlite3* db, Fn&& fn, std::string* err = nullptr)
 {
@@ -183,7 +191,7 @@ std::vector<db::Database::TickerRow> db::Database::get_tickers(
             }
         }
 
-        std::string sql = "SELECT ticker, last_update, portfolio "
+        std::string sql = "SELECT ticker, last_update, portfolio, type "
                           "FROM tickers ";
         if (portfolio_only) {
             sql += "WHERE portfolio = 1 ";
@@ -209,6 +217,8 @@ std::vector<db::Database::TickerRow> db::Database::get_tickers(
                 r.ticker = col_text(st.get(), 0);
                 r.last_update = sqlite3_column_int64(st.get(), 1);
                 r.portfolio = sqlite3_column_int(st.get(), 2) != 0;
+                r.type = sqlite3_column_int(st.get(), 3);
+                if (r.type <= 0) r.type = 1;
                 out.push_back(std::move(r));
             }
             else if (rc == SQLITE_DONE) {
@@ -234,7 +244,7 @@ std::vector<db::Database::TickerRow> db::Database::search_tickers(
         if (contains.empty()) return {};
 
         std::string sql = R"SQL(
-            SELECT ticker, last_update, portfolio
+            SELECT ticker, last_update, portfolio, type
             FROM tickers
             WHERE UPPER(ticker) LIKE '%' || UPPER(?) || '%'
         )SQL";
@@ -259,6 +269,8 @@ std::vector<db::Database::TickerRow> db::Database::search_tickers(
                 r.ticker = col_text(st.get(), 0);
                 r.last_update = sqlite3_column_int64(st.get(), 1);
                 r.portfolio = sqlite3_column_int(st.get(), 2) != 0;
+                r.type = sqlite3_column_int(st.get(), 3);
+                if (r.type <= 0) r.type = 1;
                 out.push_back(std::move(r));
             }
             else if (rc == SQLITE_DONE) {
@@ -300,6 +312,36 @@ bool Database::toggle_ticker_portfolio(const std::string& ticker, std::string* e
         if (err) *err = e.what();
         return false;
     }
+}
+
+std::optional<int> Database::get_ticker_type(const std::string& ticker,
+                                             std::string* err)
+{
+    try {
+        const char* sql = R"SQL(
+            SELECT type
+            FROM tickers
+            WHERE ticker = ?;
+        )SQL";
+
+        Stmt st{db_, sql};
+        bind_text(db_, st.get(), 1, ticker);
+
+        const int rc = sqlite3_step(st.get());
+        if (rc == SQLITE_ROW) {
+            int type = sqlite3_column_int(st.get(), 0);
+            if (type <= 0) type = 1;
+            return type;
+        }
+        if (rc == SQLITE_DONE) {
+            return std::nullopt;
+        }
+        db::detail::throw_sqlite(db_, "get ticker type step failed");
+    }
+    catch (const std::exception& e) {
+        if (err) *err = e.what();
+    }
+    return std::nullopt;
 }
 
 bool Database::delete_period(const std::string& ticker,
@@ -391,20 +433,49 @@ bool Database::delete_period(const std::string& ticker,
 bool Database::add_finances(const std::string& ticker,
                             const std::string& period,
                             const FinancePayload& payload,
-                            std::string* err)
+                            std::string* err,
+                            int ticker_type)
 {
     try {
         const auto [year, period_type] = parse_period(period);
         const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
+        ticker_type = normalize_ticker_type(ticker_type);
 
         return in_transaction(
             db_,
             [&] {
+                // Existing ticker type is immutable. New rows default to 1 and
+                // new bank tickers can set 2.
+                {
+                    const char* sql = R"SQL(
+                        SELECT type
+                        FROM tickers
+                        WHERE ticker = ?;
+                    )SQL";
+
+                    Stmt st{db_, sql};
+                    bind_text(db_, st.get(), 1, ticker);
+
+                    const int rc = sqlite3_step(st.get());
+                    if (rc == SQLITE_ROW) {
+                        int existing_type = sqlite3_column_int(st.get(), 0);
+                        if (existing_type <= 0) existing_type = 1;
+                        if (existing_type != ticker_type) {
+                            throw std::runtime_error(
+                                "ticker type mismatch for existing ticker");
+                        }
+                    }
+                    else if (rc != SQLITE_DONE) {
+                        db::detail::throw_sqlite(
+                            db_, "select ticker type step failed");
+                    }
+                }
+
                 // upsert ticker
                 {
                     const char* sql = R"SQL(
-                INSERT INTO tickers (ticker, last_update)
-                VALUES (?, ?)
+                INSERT INTO tickers (ticker, last_update, type)
+                VALUES (?, ?, ?)
                 ON CONFLICT(ticker) DO UPDATE SET
                     last_update = excluded.last_update;
             )SQL";
@@ -413,6 +484,8 @@ bool Database::add_finances(const std::string& ticker,
                     bind_text(db_, st.get(), 1, ticker);
                     if (sqlite3_bind_int64(st.get(), 2, now) != SQLITE_OK)
                         db::detail::throw_sqlite(db_, "bind now failed");
+                    if (sqlite3_bind_int(st.get(), 3, ticker_type) != SQLITE_OK)
+                        db::detail::throw_sqlite(db_, "bind ticker type failed");
 
                     const int rc = sqlite3_step(st.get());
                     if (rc != SQLITE_DONE)
@@ -435,11 +508,27 @@ bool Database::add_finances(const std::string& ticker,
                     revenue,
                     current_liabilities,
                     non_current_liabilities,
-                    net_income
+                    net_income,
+                    total_loans,
+                    goodwill,
+                    total_assets,
+                    total_deposits,
+                    total_liabilities,
+                    net_interest_income,
+                    non_interest_income,
+                    loan_loss_provisions,
+                    non_interest_expense,
+                    risk_weighted_assets,
+                    common_equity_tier1,
+                    net_charge_offs,
+                    non_performing_loans
                 )
                 VALUES (
                     ?, ?, ?,
                     ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?
                 )
@@ -455,7 +544,20 @@ bool Database::add_finances(const std::string& ticker,
                     revenue                   = excluded.revenue,
                     current_liabilities       = excluded.current_liabilities,
                     non_current_liabilities   = excluded.non_current_liabilities,
-                    net_income                = excluded.net_income;
+                    net_income                = excluded.net_income,
+                    total_loans               = excluded.total_loans,
+                    goodwill                  = excluded.goodwill,
+                    total_assets              = excluded.total_assets,
+                    total_deposits            = excluded.total_deposits,
+                    total_liabilities         = excluded.total_liabilities,
+                    net_interest_income       = excluded.net_interest_income,
+                    non_interest_income       = excluded.non_interest_income,
+                    loan_loss_provisions      = excluded.loan_loss_provisions,
+                    non_interest_expense      = excluded.non_interest_expense,
+                    risk_weighted_assets      = excluded.risk_weighted_assets,
+                    common_equity_tier1       = excluded.common_equity_tier1,
+                    net_charge_offs           = excluded.net_charge_offs,
+                    non_performing_loans      = excluded.non_performing_loans;
             )SQL";
 
                     Stmt st{db_, sql};
@@ -482,6 +584,26 @@ bool Database::add_finances(const std::string& ticker,
                     bind_i64_opt(
                         db_, st.get(), 13, payload.non_current_liabilities);
                     bind_i64_opt(db_, st.get(), 14, payload.net_income);
+                    bind_i64_opt(db_, st.get(), 15, payload.total_loans);
+                    bind_i64_opt(db_, st.get(), 16, payload.goodwill);
+                    bind_i64_opt(db_, st.get(), 17, payload.total_assets);
+                    bind_i64_opt(db_, st.get(), 18, payload.total_deposits);
+                    bind_i64_opt(db_, st.get(), 19, payload.total_liabilities);
+                    bind_i64_opt(
+                        db_, st.get(), 20, payload.net_interest_income);
+                    bind_i64_opt(
+                        db_, st.get(), 21, payload.non_interest_income);
+                    bind_i64_opt(
+                        db_, st.get(), 22, payload.loan_loss_provisions);
+                    bind_i64_opt(
+                        db_, st.get(), 23, payload.non_interest_expense);
+                    bind_i64_opt(
+                        db_, st.get(), 24, payload.risk_weighted_assets);
+                    bind_i64_opt(
+                        db_, st.get(), 25, payload.common_equity_tier1);
+                    bind_i64_opt(db_, st.get(), 26, payload.net_charge_offs);
+                    bind_i64_opt(
+                        db_, st.get(), 27, payload.non_performing_loans);
 
                     const int rc = sqlite3_step(st.get());
                     if (rc != SQLITE_DONE)
@@ -514,7 +636,20 @@ Database::get_finances(const std::string& ticker, std::string* err)
                 revenue,
                 current_liabilities,
                 non_current_liabilities,
-                net_income
+                net_income,
+                total_loans,
+                goodwill,
+                total_assets,
+                total_deposits,
+                total_liabilities,
+                net_interest_income,
+                non_interest_income,
+                loan_loss_provisions,
+                non_interest_expense,
+                risk_weighted_assets,
+                common_equity_tier1,
+                net_charge_offs,
+                non_performing_loans
             FROM finances
             WHERE ticker = ?
             ORDER BY year ASC, period_type ASC;
@@ -543,6 +678,19 @@ Database::get_finances(const std::string& ticker, std::string* err)
                 r.current_liabilities = col_i64_opt(st.get(), 11);
                 r.non_current_liabilities = col_i64_opt(st.get(), 12);
                 r.net_income = col_i64_opt(st.get(), 13);
+                r.total_loans = col_i64_opt(st.get(), 14);
+                r.goodwill = col_i64_opt(st.get(), 15);
+                r.total_assets = col_i64_opt(st.get(), 16);
+                r.total_deposits = col_i64_opt(st.get(), 17);
+                r.total_liabilities = col_i64_opt(st.get(), 18);
+                r.net_interest_income = col_i64_opt(st.get(), 19);
+                r.non_interest_income = col_i64_opt(st.get(), 20);
+                r.loan_loss_provisions = col_i64_opt(st.get(), 21);
+                r.non_interest_expense = col_i64_opt(st.get(), 22);
+                r.risk_weighted_assets = col_i64_opt(st.get(), 23);
+                r.common_equity_tier1 = col_i64_opt(st.get(), 24);
+                r.net_charge_offs = col_i64_opt(st.get(), 25);
+                r.non_performing_loans = col_i64_opt(st.get(), 26);
 
                 out.push_back(std::move(r));
             }
@@ -563,4 +711,3 @@ Database::get_finances(const std::string& ticker, std::string* err)
 }
 
 } // namespace db
-

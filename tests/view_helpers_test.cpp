@@ -99,6 +99,30 @@ TEST_CASE("view_add character admission blocks invalid input patterns")
         '.', views::FieldKey::Eps, "1.0", 3));
 }
 
+TEST_CASE("view_add ticker type helpers switch and expose correct schemas")
+{
+    REQUIRE_EQ(views::normalize_add_ticker_type(0), 1);
+    REQUIRE_EQ(views::normalize_add_ticker_type(1), 1);
+    REQUIRE_EQ(views::normalize_add_ticker_type(2), 2);
+    REQUIRE_EQ(views::normalize_add_ticker_type(9), 1);
+
+    REQUIRE_EQ(views::next_add_ticker_type(1), 2);
+    REQUIRE_EQ(views::next_add_ticker_type(2), 1);
+
+    const auto& fields1 = views::add_fields_for_type(1);
+    const auto& fields2 = views::add_fields_for_type(2);
+    REQUIRE_EQ(fields1.front().key, views::FieldKey::Ticker);
+    REQUIRE_EQ(fields2.front().key, views::FieldKey::Ticker);
+    REQUIRE_EQ(fields1[2].key, views::FieldKey::CashAndEquivalents);
+    REQUIRE_EQ(fields2[2].key, views::FieldKey::TotalLoans);
+    REQUIRE_EQ(fields2.back().key, views::FieldKey::NonPerformingLoans);
+    REQUIRE(fields2.size() > fields1.size());
+
+    const auto& sections2 = views::add_sections_for_type(2);
+    REQUIRE_EQ(sections2.size(), std::size_t{4});
+    REQUIRE_EQ(std::string(sections2[2].title), std::string("REGULATORY"));
+}
+
 TEST_CASE("view_home index helpers clamp and fallback predictably")
 {
     REQUIRE_EQ(views::home_index_for_cell(7, 0, 0, 3, 5), 0);
@@ -240,5 +264,4 @@ TEST_CASE("view_ticker input-dependent overflow guard is length-based")
     REQUIRE(views::input_metric_overflows_width(
         "-9999999", "-1234567k%", 18, true));
 }
-
 

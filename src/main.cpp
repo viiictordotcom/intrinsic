@@ -32,8 +32,8 @@ struct Ncurses {
             init_pair(2, COLOR_RED, -1);
             init_pair(3, COLOR_BLUE, -1);
             init_pair(4, COLOR_CYAN, -1);
-            const short bright_cyan = (COLORS > 14) ? 14 : COLOR_CYAN;
-            init_pair(5, COLOR_BLACK, bright_cyan);
+            const short bright_yellow = (COLORS > 11) ? 11 : COLOR_YELLOW;
+            init_pair(5, COLOR_BLACK, bright_yellow);
         }
     }
     ~Ncurses() { endwin(); }

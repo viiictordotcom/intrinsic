@@ -28,6 +28,8 @@ struct AddState {
     std::vector<std::string> buffers;
     std::vector<OptValue> values;
     bool confirming = false;
+    int ticker_type = 1;
+    bool ticker_type_locked = false;
 
     // layout cache -> render_add fills
     std::vector<int> layout_y;
@@ -43,6 +45,8 @@ struct AddState {
         values.assign(field_count, std::nullopt);
         layout_y.assign(field_count, 0);
         confirming = false;
+        ticker_type = 1;
+        ticker_type_locked = false;
     }
 };
 
@@ -115,12 +119,14 @@ struct AppState {
         int scroll = 0;
         std::string status_line;
         bool yearly_only = false;
+        int ticker_type = 1;
         // inline editor buffers for date/value inputs
         std::array<std::string, 2> inputs{};
         int input_index = 0;
 
         void reset(std::string next_ticker,
-                   std::vector<db::Database::FinanceRow> next_rows)
+                   std::vector<db::Database::FinanceRow> next_rows,
+                   int next_ticker_type = 1)
         {
             ticker = std::move(next_ticker);
             all_rows = std::move(next_rows);
@@ -129,6 +135,7 @@ struct AppState {
             scroll = 0;
             status_line.clear();
             yearly_only = false;
+            ticker_type = (next_ticker_type > 0) ? next_ticker_type : 1;
             inputs = {};
             input_index = 0;
         }

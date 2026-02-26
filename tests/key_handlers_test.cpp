@@ -42,6 +42,7 @@ TEST_CASE("key_home search flow transitions into ticker view")
     REQUIRE(views::handle_key_home(sandbox.app, '\n'));
     REQUIRE_EQ(sandbox.app.current, views::ViewId::Ticker);
     REQUIRE_EQ(sandbox.app.ticker_view.ticker, std::string("AAPL"));
+    REQUIRE_EQ(sandbox.app.ticker_view.ticker_type, 1);
 }
 
 TEST_CASE("key_home enforces search length limit and exits search mode")
@@ -214,6 +215,90 @@ TEST_CASE("key_add enforces numeric digit limits and edit escape routing")
     REQUIRE_EQ(sandbox.app.current, views::ViewId::Add);
     REQUIRE(views::handle_key_add(sandbox.app, 27));
     REQUIRE_EQ(sandbox.app.current, views::ViewId::Ticker);
+}
+
+TEST_CASE("key_add tab switches type for new ticker and locks existing ticker type")
+{
+    test::AppSandbox sandbox;
+
+    db::Database::FinancePayload bank{};
+    bank.total_loans = 100;
+    bank.total_assets = 500;
+    bank.total_deposits = 300;
+    bank.total_liabilities = 450;
+    bank.net_interest_income = 10;
+    bank.non_interest_income = 5;
+    bank.loan_loss_provisions = 1;
+    bank.non_interest_expense = 8;
+    bank.net_income = 4;
+    bank.eps = 1.0;
+    bank.risk_weighted_assets = 250;
+    bank.common_equity_tier1 = 30;
+    bank.net_charge_offs = 1;
+    bank.non_performing_loans = 2;
+    std::string err;
+    REQUIRE(sandbox.database.add_finances("BANK", "2024-Y", bank, &err, 2));
+    REQUIRE(err.empty());
+
+    views::open_add_create(sandbox.app);
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 1);
+    REQUIRE(!sandbox.app.add.ticker_type_locked);
+
+    REQUIRE(views::handle_key_add(sandbox.app, 'X'));
+    REQUIRE_EQ(sandbox.app.add.buffers[0], std::string("X"));
+    REQUIRE(views::handle_key_add(sandbox.app, '\t'));
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 2);
+    REQUIRE(sandbox.app.add.buffers[0].empty());
+
+    for (char c : std::string("bank")) {
+        REQUIRE(views::handle_key_add(sandbox.app, c));
+    }
+    REQUIRE_EQ(sandbox.app.add.buffers[0], std::string("BANK"));
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 2);
+    REQUIRE(sandbox.app.add.ticker_type_locked);
+}
+
+TEST_CASE("key_home open bank ticker propagates type to ticker and edit views")
+{
+    test::AppSandbox sandbox;
+
+    db::Database::FinancePayload bank{};
+    bank.total_loans = 100;
+    bank.total_assets = 500;
+    bank.total_deposits = 300;
+    bank.total_liabilities = 450;
+    bank.net_interest_income = 10;
+    bank.non_interest_income = 5;
+    bank.loan_loss_provisions = 1;
+    bank.non_interest_expense = 8;
+    bank.net_income = 4;
+    bank.eps = 1.0;
+    bank.risk_weighted_assets = 250;
+    bank.common_equity_tier1 = 30;
+    bank.net_charge_offs = 1;
+    bank.non_performing_loans = 2;
+    std::string err;
+    REQUIRE(sandbox.database.add_finances("BANK", "2024-Y", bank, &err, 2));
+    REQUIRE(err.empty());
+
+    sandbox.app.tickers.last_rows =
+        sandbox.database.get_tickers(0,
+                                     20,
+                                     db::Database::TickerSortKey::Ticker,
+                                     db::Database::SortDir::Asc,
+                                     &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(sandbox.app.tickers.last_rows.size(), std::size_t{1});
+    REQUIRE_EQ(sandbox.app.tickers.last_rows.front().type, 2);
+
+    REQUIRE(views::handle_key_home(sandbox.app, '\n'));
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Ticker);
+    REQUIRE_EQ(sandbox.app.ticker_view.ticker_type, 2);
+
+    REQUIRE(views::handle_key_ticker(sandbox.app, 'e'));
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Add);
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 2);
+    REQUIRE(sandbox.app.add.ticker_type_locked);
 }
 
 TEST_CASE("key_ticker navigation input bounds and yearly toggle work")

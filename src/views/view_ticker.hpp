@@ -53,6 +53,10 @@ inline void render_ticker(AppState& app)
     const db::Database::FinanceRow* previous_row =
         find_previous_year_same_period(view.all_rows, row);
     const std::string period = period_label(row);
+    if (view.ticker_type == 2) {
+        render_ticker_type2(app, help_lines, row, previous_row, period);
+        return;
+    }
     if (LINES > 1) {
         mvprintw(1,
                  0,
@@ -287,8 +291,6 @@ inline void render_ticker(AppState& app)
         null_if_negative(prev_ev_over_market_cap_raw);
     const auto prev_ev_over_net_income =
         null_if_negative(prev_ev_over_net_income_raw);
-    std::optional<double> score = std::nullopt;
-
     const auto price_needed_for_wished_per =
         rounded_price_for_wished_per(wished_per, eps_for_wished, eps_d_current);
     const auto required_eps = div_opt(typed_price, wished_per);
@@ -299,89 +301,6 @@ inline void render_ticker(AppState& app)
         percent_change(price_needed_for_wished_per, typed_price);
     const auto required_net_income_change = required_net_income_change_pct(
         required_net_income, net_income_for_wished);
-
-    if (ratio_price.has_value()) {
-        const bool missing_required =
-            !is_valid_number(net_income_for_derived) ||
-            !is_valid_number(shares_approx) ||
-            !is_valid_number(ev_over_market_cap_raw) ||
-            !is_valid_number(price_to_book);
-
-        if (!missing_required) {
-            const bool non_positive_base =
-                (eps_for_derived.has_value() && *eps_for_derived <= 0.0) ||
-                (book_value.has_value() && *book_value <= 0.0) ||
-                (cash_flow_ops_for_derived.has_value() &&
-                 *cash_flow_ops_for_derived <= 0.0) ||
-                (net_income_for_derived.has_value() &&
-                 *net_income_for_derived <= 0.0);
-
-            if (non_positive_base) {
-                score = 0.0;
-            }
-            else if (enterprise_value.has_value() && *enterprise_value <= 0.0) {
-                score = 10.0;
-            }
-            else {
-                const auto r2 = ratio_score(per_ratio, 50.0);
-                const auto r3 = ratio_score(price_to_book, 20.0);
-                if (r2.has_value() && r3.has_value()) {
-                    if (ev_over_cash_flow_ops_raw.has_value()) {
-                        const auto r1 =
-                            ratio_score(ev_over_cash_flow_ops_raw, 50.0);
-                        if (r1.has_value())
-                            score = 0.4 * (*r1) + 0.3 * (*r2) + 0.3 * (*r3);
-                    }
-                    else {
-                        score = 0.5 * (*r2) + 0.5 * (*r3);
-                    }
-                }
-            }
-        }
-    }
-
-    std::optional<double> prev_score = std::nullopt;
-    if (ratio_price.has_value()) {
-        const bool missing_required =
-            !is_valid_number(prev_net_income_d) ||
-            !is_valid_number(prev_shares_approx) ||
-            !is_valid_number(prev_ev_over_market_cap_raw) ||
-            !is_valid_number(prev_price_to_book);
-
-        if (!missing_required) {
-            const bool non_positive_base =
-                (prev_eps_d.has_value() && *prev_eps_d <= 0.0) ||
-                (prev_book_value.has_value() && *prev_book_value <= 0.0) ||
-                (prev_cash_flow_ops_d.has_value() &&
-                 *prev_cash_flow_ops_d <= 0.0) ||
-                (prev_net_income_d.has_value() && *prev_net_income_d <= 0.0);
-
-            if (non_positive_base) {
-                prev_score = 0.0;
-            }
-            else if (prev_enterprise_value.has_value() &&
-                     *prev_enterprise_value <= 0.0) {
-                prev_score = 10.0;
-            }
-            else {
-                const auto r2 = ratio_score(prev_per_ratio, 50.0);
-                const auto r3 = ratio_score(prev_price_to_book, 20.0);
-                if (r2.has_value() && r3.has_value()) {
-                    if (prev_ev_over_cash_flow_ops_raw.has_value()) {
-                        const auto r1 =
-                            ratio_score(prev_ev_over_cash_flow_ops_raw, 50.0);
-                        if (r1.has_value()) {
-                            prev_score =
-                                0.4 * (*r1) + 0.3 * (*r2) + 0.3 * (*r3);
-                        }
-                    }
-                    else {
-                        prev_score = 0.5 * (*r2) + 0.5 * (*r3);
-                    }
-                }
-            }
-        }
-    }
 
     const std::vector<Metric> valuation_box = {
         {"P / E",
@@ -412,7 +331,7 @@ inline void render_ticker(AppState& app)
                                           prev_ev_over_cash_flow_ops)),
          true,
          true},
-        {"EV / NP",
+        {"EV / NI",
          with_change(
              format_ratio_opt(ev_over_net_income, kNaValue),
              ratio_percent_change(ev_over_net_income, prev_ev_over_net_income)),
@@ -510,20 +429,14 @@ inline void render_ticker(AppState& app)
                      ratio_percent_change(book_value, prev_book_value))},
     };
 
-    const std::vector<Metric> score_box = {
-        {"Score",
-         with_change(format_ratio_opt(score, kNaValue),
-                     ratio_percent_change(score, prev_score)),
-         false,
-         true},
-        {"", ""},
-        {"p needed",
+    const std::vector<Metric> target_box = {
+        {"P needed",
          with_change(format_compact_i64_from_f64_opt(price_needed_for_wished_per,
                                                      kNaValue),
                      price_needed_change),
          false,
          true},
-        {"NP needed",
+        {"NI needed",
          with_change(format_compact_i64_from_f64_opt(required_net_income,
                                                      kNaValue),
                      required_net_income_change),
@@ -535,7 +448,7 @@ inline void render_ticker(AppState& app)
         {"R",
          with_change(format_i64_opt(row.revenue),
                      percent_change(revenue_d, prev_revenue_d))},
-        {"NP",
+        {"NI",
          with_change(format_i64_opt(row.net_income),
                      percent_change(net_income_d, prev_net_income_d))},
         {"EPS",
@@ -636,7 +549,7 @@ inline void render_ticker(AppState& app)
         two_metric_cols ? quality_cashflow_box : quality_cashflow_box_single;
 
     const std::vector<std::vector<Metric>> metric_boxes = {
-        score_box,
+        target_box,
         valuation_box,
         active_balance_sheet_box,
         active_quality_cashflow_box,
