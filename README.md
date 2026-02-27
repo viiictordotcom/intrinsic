@@ -235,7 +235,7 @@ Metrics are shown for the selected period in Ticker view.
 - `NIExp`: non-interest expense
 - `PPOP`: pre-provision profit (`NII + NonII - NIExp`)
 - `LLP`: loan loss provisions
-- `Prov / PPOP`: `LLP / PPOP`
+- `LLP / PPOP`: `LLP / PPOP`
 - `NI`: net income
 - `EPS`: earnings per share
 - `ROA`: `NI / TA`
