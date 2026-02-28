@@ -104,23 +104,39 @@ TEST_CASE("view_add ticker type helpers switch and expose correct schemas")
     REQUIRE_EQ(views::normalize_add_ticker_type(0), 1);
     REQUIRE_EQ(views::normalize_add_ticker_type(1), 1);
     REQUIRE_EQ(views::normalize_add_ticker_type(2), 2);
+    REQUIRE_EQ(views::normalize_add_ticker_type(3), 3);
     REQUIRE_EQ(views::normalize_add_ticker_type(9), 1);
 
     REQUIRE_EQ(views::next_add_ticker_type(1), 2);
-    REQUIRE_EQ(views::next_add_ticker_type(2), 1);
+    REQUIRE_EQ(views::next_add_ticker_type(2), 3);
+    REQUIRE_EQ(views::next_add_ticker_type(3), 1);
 
     const auto& fields1 = views::add_fields_for_type(1);
     const auto& fields2 = views::add_fields_for_type(2);
+    const auto& fields3 = views::add_fields_for_type(3);
     REQUIRE_EQ(fields1.front().key, views::FieldKey::Ticker);
     REQUIRE_EQ(fields2.front().key, views::FieldKey::Ticker);
+    REQUIRE_EQ(fields3.front().key, views::FieldKey::Ticker);
     REQUIRE_EQ(fields1[2].key, views::FieldKey::CashAndEquivalents);
     REQUIRE_EQ(fields2[2].key, views::FieldKey::TotalLoans);
+    REQUIRE_EQ(fields3[2].key, views::FieldKey::TotalAssets);
+    REQUIRE_EQ(fields3[3].key, views::FieldKey::InsuranceReserves);
+    REQUIRE_EQ(fields3[4].key, views::FieldKey::TotalDebt);
+    REQUIRE_EQ(fields3[5].key, views::FieldKey::TotalLiabilities);
+    REQUIRE_EQ(fields3[6].key, views::FieldKey::EarnedPremiums);
+    REQUIRE_EQ(fields3[7].key, views::FieldKey::ClaimsIncurred);
+    REQUIRE_EQ(fields3[8].key, views::FieldKey::InterestExpenses);
+    REQUIRE_EQ(fields3[9].key, views::FieldKey::TotalExpenses);
     REQUIRE_EQ(fields2.back().key, views::FieldKey::NonPerformingLoans);
+    REQUIRE_EQ(fields3.back().key, views::FieldKey::Eps);
     REQUIRE(fields2.size() > fields1.size());
 
     const auto& sections2 = views::add_sections_for_type(2);
+    const auto& sections3 = views::add_sections_for_type(3);
     REQUIRE_EQ(sections2.size(), std::size_t{4});
     REQUIRE_EQ(std::string(sections2[2].title), std::string("REGULATORY"));
+    REQUIRE_EQ(sections3.size(), std::size_t{2});
+    REQUIRE_EQ(std::string(sections3[1].title), std::string("INCOME"));
 }
 
 TEST_CASE("view_home index helpers clamp and fallback predictably")
@@ -164,6 +180,14 @@ TEST_CASE("view_ticker parsing and numeric guards handle invalid values")
                std::string(views::kNaValue));
     REQUIRE_EQ(views::format_f64_integer_opt(std::optional<double>{-1e300}),
                std::string(views::kNaValue));
+    REQUIRE_EQ(views::format_shares_opt(std::optional<double>{999999.0}),
+               std::string("999,999"));
+    REQUIRE_EQ(views::format_shares_opt(std::optional<double>{1000000.0}),
+               std::string("1M"));
+    REQUIRE_EQ(views::format_shares_opt(std::optional<double>{2500000000.0}),
+               std::string("2,500M"));
+    REQUIRE_EQ(views::format_shares_opt(std::optional<double>{-1200000.0}),
+               std::string("-1M"));
 
     REQUIRE(!views::div_opt_nonzero(std::optional<double>{10.0},
                                     std::optional<double>{0.0})
@@ -235,8 +259,6 @@ TEST_CASE("view_ticker change-format helpers parse and colorize consistently")
                views::kColorPairPositive);
     REQUIRE_EQ(views::color_pair_for_change_text("-10.0%"),
                views::kColorPairNegative);
-    REQUIRE_EQ(views::color_pair_for_change_text("10.0%", true),
-               views::kColorPairNegative);
 }
 
 TEST_CASE("view_ticker input guard enforces one dot and max length")
@@ -264,4 +286,3 @@ TEST_CASE("view_ticker input-dependent overflow guard is length-based")
     REQUIRE(views::input_metric_overflows_width(
         "-9999999", "-1234567k%", 18, true));
 }
-

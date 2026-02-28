@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+
 #include "views/view_ticker_helpers.hpp"
 
 namespace views {
@@ -14,6 +16,11 @@ inline void render_ticker(AppState& app)
     if (view.input_index < 0) view.input_index = 0;
     if (view.input_index > 1) view.input_index = 1;
     if (view.scroll < 0) view.scroll = 0;
+    if (view.status_line_expires_at.has_value() &&
+        std::chrono::steady_clock::now() >= *view.status_line_expires_at) {
+        view.status_line.clear();
+        view.status_line_expires_at.reset();
+    }
 
     int help_lines = 0;
     if (app.settings.show_help) {
@@ -29,7 +36,14 @@ inline void render_ticker(AppState& app)
         mvprintw(0, 0, "intrinsic ~");
         attroff(A_BOLD);
         if (has_colors()) attroff(COLOR_PAIR(kColorPairHeader));
-        if (COLS > 11) mvprintw(0, 11, " %s", view.ticker.c_str());
+        if (COLS > 11) {
+            const int ticker_type = normalize_add_ticker_type(view.ticker_type);
+            mvprintw(0,
+                     11,
+                     " %s [type %d]",
+                     view.ticker.c_str(),
+                     ticker_type);
+        }
     }
     if (LINES > 2 && !view.status_line.empty()) {
         mvprintw(2, 0, "%.*s", std::max(0, COLS - 1), view.status_line.c_str());
@@ -41,7 +55,7 @@ inline void render_ticker(AppState& app)
         if (help_lines >= 2) {
             attron(A_DIM);
             mvprintw(LINES - 2, 0, "x: delete   e: edit   c: copy");
-            mvprintw(LINES - 1, 0, "h: home   ?: help   s: settings   q: quit");
+            mvprintw(LINES - 1, 0, "h/-/esc: home   ?: help   s: settings   q: quit");
             attroff(A_DIM);
         }
         wnoutrefresh(stdscr);
@@ -55,6 +69,10 @@ inline void render_ticker(AppState& app)
     const std::string period = period_label(row);
     if (view.ticker_type == 2) {
         render_ticker_type2(app, help_lines, row, previous_row, period);
+        return;
+    }
+    if (view.ticker_type == 3) {
+        render_ticker_type3(app, help_lines, row, previous_row, period);
         return;
     }
     if (LINES > 1) {
@@ -377,7 +395,7 @@ inline void render_ticker(AppState& app)
                      ratio_percent_change(wc_over_non_current,
                                           prev_wc_over_non_current))},
         {"Shs~",
-         with_change(format_f64_integer_opt(shares_approx),
+         with_change(format_shares_opt(shares_approx),
                      percent_change(shares_approx, prev_shares_approx))},
         {"BV",
          with_change(format_ratio_opt(book_value),
@@ -422,7 +440,7 @@ inline void render_ticker(AppState& app)
                      ratio_percent_change(wc_over_non_current,
                                           prev_wc_over_non_current))},
         {"Shs~",
-         with_change(format_f64_integer_opt(shares_approx),
+         with_change(format_shares_opt(shares_approx),
                      percent_change(shares_approx, prev_shares_approx))},
         {"BV",
          with_change(format_ratio_opt(book_value),
@@ -524,11 +542,11 @@ inline void render_ticker(AppState& app)
 
     constexpr int metric_col_gap = 1;
     constexpr int box_gap_rows = 1;
-    constexpr int preferred_col_w = 28;
+    constexpr int preferred_col_w = 30;
     // Keep enough room per column for sane max text:
-    // longest label (9) + value (up to ~11 chars) + change ("12.3%").
-    constexpr int min_label_w_for_two_col = 9;
-    constexpr int min_value_w_for_two_col = 11;
+    // longest label (11) + value (up to ~12 chars) + change ("12.3%").
+    constexpr int min_label_w_for_two_col = 11;
+    constexpr int min_value_w_for_two_col = 12;
     constexpr int min_change_w_for_two_col = 5;
     constexpr int min_two_col_w = min_label_w_for_two_col + 1 +
                                   min_value_w_for_two_col + 1 +
@@ -542,7 +560,7 @@ inline void render_ticker(AppState& app)
     }();
     const int c1_x = 0;
     const int c2_x = two_metric_cols ? (c1_x + col_w + metric_col_gap) : c1_x;
-    const int label_w = std::clamp(col_w - 17, 6, 9);
+    const int label_w = std::clamp(col_w - 15, 6, 11);
     const auto& active_balance_sheet_box =
         two_metric_cols ? balance_sheet_box : balance_sheet_box_single;
     const auto& active_quality_cashflow_box =
@@ -668,13 +686,13 @@ inline void render_ticker(AppState& app)
     if (help_lines >= 4) {
         attron(A_DIM);
         mvprintw(LINES - 2, 0, "x: delete   e: edit   c: copy");
-        mvprintw(LINES - 1, 0, "h: home   ?: help   s: settings   q: quit");
+        mvprintw(LINES - 1, 0, "h/-/esc: home   ?: help   s: settings   q: quit");
         attroff(A_DIM);
     }
     else if (help_lines >= 2) {
         attron(A_DIM);
         mvprintw(LINES - 2, 0, "x: delete   e: edit   c: copy");
-        mvprintw(LINES - 1, 0, "h: home   ?: help   s: settings   q: quit");
+        mvprintw(LINES - 1, 0, "h/-/esc: home   ?: help   s: settings   q: quit");
         attroff(A_DIM);
     }
 
@@ -785,9 +803,13 @@ inline bool handle_key_ticker(AppState& app, int ch)
         std::string used;
         if (copy_text_to_clipboard(text, &used)) {
             view.status_line = "copied data to clipboard (" + used + ")";
+            view.status_line_expires_at =
+                std::chrono::steady_clock::now() + std::chrono::seconds(1);
         }
         else {
             view.status_line = clipboard_unavailable_hint();
+            view.status_line_expires_at =
+                std::chrono::steady_clock::now() + std::chrono::seconds(1);
         }
         return true;
     }
@@ -863,7 +885,7 @@ inline bool handle_key_ticker(AppState& app, int ch)
         return true;
     }
 
-    if (ch == 27 /*ESC*/) {
+    if (ch == 27 /*ESC*/ || ch == '-') {
         app.current = views::ViewId::Home;
         return true;
     }

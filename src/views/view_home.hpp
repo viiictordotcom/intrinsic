@@ -21,7 +21,6 @@ inline constexpr int kHomeMaxTextWidth = 18;
 inline constexpr int kHomeTextCushion = 2;
 inline constexpr int kHomeSearchLimit = 15;
 inline constexpr std::size_t kHomeSearchMaxLen = 12;
-inline constexpr int kHomePortfolioColorPair = 5;
 
 inline bool prefetch_matches(const AppState& app, int page)
 {
@@ -419,13 +418,9 @@ inline void render_home(AppState& app)
         const int visible_len =
             std::max(0, std::min(static_cast<int>(text.size()), text_w));
         if (visible_len > 0) {
-            if (portfolio && has_colors()) {
-                attron(COLOR_PAIR(kHomePortfolioColorPair));
-            }
+            if (portfolio) attron(A_UNDERLINE);
             mvprintw(y, x + 2, "%.*s", visible_len, text.c_str());
-            if (portfolio && has_colors()) {
-                attroff(COLOR_PAIR(kHomePortfolioColorPair));
-            }
+            if (portfolio) attroff(A_UNDERLINE);
         }
 
         if (selected) attroff(A_BOLD);

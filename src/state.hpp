@@ -5,6 +5,7 @@
 #include <optional>
 #include <variant>
 #include <array>
+#include <chrono>
 #include <cstdint>
 
 #include "db/database.hpp"
@@ -118,6 +119,8 @@ struct AppState {
         int index = 0;
         int scroll = 0;
         std::string status_line;
+        std::optional<std::chrono::steady_clock::time_point>
+            status_line_expires_at;
         bool yearly_only = false;
         int ticker_type = 1;
         // inline editor buffers for date/value inputs
@@ -134,6 +137,7 @@ struct AppState {
             index = rows.empty() ? 0 : static_cast<int>(rows.size() - 1);
             scroll = 0;
             status_line.clear();
+            status_line_expires_at.reset();
             yearly_only = false;
             ticker_type = (next_ticker_type > 0) ? next_ticker_type : 1;
             inputs = {};

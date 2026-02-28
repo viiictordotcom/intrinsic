@@ -184,6 +184,139 @@ TEST_CASE("key_add create flow stores finance record and returns home")
     REQUIRE_EQ(rows.front().period_type, std::string("Y"));
 }
 
+TEST_CASE("key_add type3 create flow stores insurer record and returns home")
+{
+    test::AppSandbox sandbox;
+
+    views::open_add_create(sandbox.app);
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Add);
+
+    REQUIRE(views::handle_key_add(sandbox.app, ' '));
+    REQUIRE(views::handle_key_add(sandbox.app, ' '));
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 3);
+
+    for (char c : std::string("insr")) {
+        REQUIRE(views::handle_key_add(sandbox.app, c));
+    }
+    REQUIRE_EQ(sandbox.app.add.buffers[0], std::string("INSR"));
+
+    REQUIRE(views::handle_key_add(sandbox.app, KEY_DOWN));
+    for (char c : std::string("2024-y")) {
+        REQUIRE(views::handle_key_add(sandbox.app, c));
+    }
+    REQUIRE_EQ(sandbox.app.add.buffers[1], std::string("2024-Y"));
+
+    const std::vector<std::string> field_values = {
+        "10000", // total assets
+        "3400",  // insurance reserves
+        "900",   // total debt
+        "8200",  // total liabilities
+        "1800",  // earned premiums
+        "1050",  // claims incurred
+        "90",    // interest expenses
+        "1500",  // total expenses
+        "220",   // net income
+        "2.5",   // eps
+    };
+
+    for (const auto& value : field_values) {
+        REQUIRE(views::handle_key_add(sandbox.app, KEY_DOWN));
+        for (char c : value) {
+            REQUIRE(views::handle_key_add(sandbox.app, c));
+        }
+    }
+
+    REQUIRE(views::handle_key_add(sandbox.app, '\n'));
+    REQUIRE(sandbox.app.add.confirming);
+    REQUIRE(views::handle_key_add(sandbox.app, 'y'));
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Home);
+    REQUIRE(!sandbox.app.add.active);
+
+    std::string err;
+    const auto rows = sandbox.database.get_finances("INSR", &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(rows.size(), std::size_t{1});
+    REQUIRE_EQ(rows.front().period_type, std::string("Y"));
+    REQUIRE_EQ(rows.front().total_assets, std::optional<std::int64_t>{10000});
+    REQUIRE_EQ(rows.front().insurance_reserves,
+               std::optional<std::int64_t>{3400});
+    REQUIRE_EQ(rows.front().total_debt, std::optional<std::int64_t>{900});
+    REQUIRE_EQ(rows.front().total_liabilities,
+               std::optional<std::int64_t>{8200});
+    REQUIRE_EQ(rows.front().earned_premiums, std::optional<std::int64_t>{1800});
+    REQUIRE_EQ(rows.front().claims_incurred, std::optional<std::int64_t>{1050});
+    REQUIRE_EQ(rows.front().interest_expenses,
+               std::optional<std::int64_t>{90});
+    REQUIRE_EQ(rows.front().total_expenses, std::optional<std::int64_t>{1500});
+    REQUIRE_EQ(rows.front().underwriting_expenses,
+               std::optional<std::int64_t>{360});
+    REQUIRE_EQ(rows.front().net_income, std::optional<std::int64_t>{220});
+    REQUIRE_EQ(rows.front().eps, std::optional<double>{2.5});
+
+    const auto db_type = sandbox.database.get_ticker_type("INSR", &err);
+    REQUIRE(err.empty());
+    REQUIRE(db_type.has_value());
+    REQUIRE_EQ(*db_type, 3);
+}
+
+TEST_CASE("key_add type3 empty interest is stored null and derives underwriting")
+{
+    test::AppSandbox sandbox;
+
+    views::open_add_create(sandbox.app);
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Add);
+
+    REQUIRE(views::handle_key_add(sandbox.app, ' '));
+    REQUIRE(views::handle_key_add(sandbox.app, ' '));
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 3);
+
+    for (char c : std::string("insi")) {
+        REQUIRE(views::handle_key_add(sandbox.app, c));
+    }
+    REQUIRE_EQ(sandbox.app.add.buffers[0], std::string("INSI"));
+
+    REQUIRE(views::handle_key_add(sandbox.app, KEY_DOWN));
+    for (char c : std::string("2024-y")) {
+        REQUIRE(views::handle_key_add(sandbox.app, c));
+    }
+    REQUIRE_EQ(sandbox.app.add.buffers[1], std::string("2024-Y"));
+
+    const std::vector<std::string> field_values = {
+        "10000", // total assets
+        "3400",  // insurance reserves
+        "900",   // total debt
+        "8200",  // total liabilities
+        "1800",  // earned premiums
+        "1050",  // claims incurred
+        "",      // interest expenses (optional)
+        "1410",  // total expenses
+        "220",   // net income
+        "2.5",   // eps
+    };
+
+    for (const auto& value : field_values) {
+        REQUIRE(views::handle_key_add(sandbox.app, KEY_DOWN));
+        for (char c : value) {
+            REQUIRE(views::handle_key_add(sandbox.app, c));
+        }
+    }
+
+    REQUIRE(views::handle_key_add(sandbox.app, '\n'));
+    REQUIRE(sandbox.app.add.confirming);
+    REQUIRE(views::handle_key_add(sandbox.app, 'y'));
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Home);
+    REQUIRE(!sandbox.app.add.active);
+
+    std::string err;
+    const auto rows = sandbox.database.get_finances("INSI", &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(rows.size(), std::size_t{1});
+    REQUIRE_EQ(rows.front().interest_expenses, std::nullopt);
+    REQUIRE_EQ(rows.front().total_expenses, std::optional<std::int64_t>{1410});
+    REQUIRE_EQ(rows.front().underwriting_expenses,
+               std::optional<std::int64_t>{360});
+}
+
 TEST_CASE("key_add enforces numeric digit limits and edit escape routing")
 {
     test::AppSandbox sandbox;
@@ -217,7 +350,7 @@ TEST_CASE("key_add enforces numeric digit limits and edit escape routing")
     REQUIRE_EQ(sandbox.app.current, views::ViewId::Ticker);
 }
 
-TEST_CASE("key_add tab switches type for new ticker and locks existing ticker type")
+TEST_CASE("key_add space cycles types and locks existing ticker type")
 {
     test::AppSandbox sandbox;
 
@@ -246,8 +379,19 @@ TEST_CASE("key_add tab switches type for new ticker and locks existing ticker ty
 
     REQUIRE(views::handle_key_add(sandbox.app, 'X'));
     REQUIRE_EQ(sandbox.app.add.buffers[0], std::string("X"));
-    REQUIRE(views::handle_key_add(sandbox.app, '\t'));
+
+    REQUIRE(views::handle_key_add(sandbox.app, ' '));
     REQUIRE_EQ(sandbox.app.add.ticker_type, 2);
+    REQUIRE(sandbox.app.add.buffers[0].empty());
+    REQUIRE(!sandbox.app.add.ticker_type_locked);
+
+    REQUIRE(views::handle_key_add(sandbox.app, ' '));
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 3);
+    REQUIRE(sandbox.app.add.buffers[0].empty());
+    REQUIRE(!sandbox.app.add.ticker_type_locked);
+
+    REQUIRE(views::handle_key_add(sandbox.app, ' '));
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 1);
     REQUIRE(sandbox.app.add.buffers[0].empty());
 
     for (char c : std::string("bank")) {
@@ -255,6 +399,59 @@ TEST_CASE("key_add tab switches type for new ticker and locks existing ticker ty
     }
     REQUIRE_EQ(sandbox.app.add.buffers[0], std::string("BANK"));
     REQUIRE_EQ(sandbox.app.add.ticker_type, 2);
+    REQUIRE(sandbox.app.add.ticker_type_locked);
+}
+
+TEST_CASE("key_add tab moves down and stops at the last field")
+{
+    test::AppSandbox sandbox;
+
+    views::open_add_create(sandbox.app);
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Add);
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 1);
+    REQUIRE_EQ(sandbox.app.add.index, 0);
+
+    const auto& fields = views::add_fields_for_type(sandbox.app.add.ticker_type);
+    REQUIRE(!fields.empty());
+    const int last_index = static_cast<int>(fields.size()) - 1;
+
+    for (int i = 0; i < last_index; ++i) {
+        REQUIRE(views::handle_key_add(sandbox.app, '\t'));
+        REQUIRE_EQ(sandbox.app.add.index, i + 1);
+    }
+
+    REQUIRE(views::handle_key_add(sandbox.app, '\t'));
+    REQUIRE_EQ(sandbox.app.add.index, last_index);
+}
+
+TEST_CASE("key_add locks type 3 for existing insurer ticker")
+{
+    test::AppSandbox sandbox;
+
+    db::Database::FinancePayload insurer{};
+    insurer.total_assets = 10000;
+    insurer.total_liabilities = 8200;
+    insurer.insurance_reserves = 3400;
+    insurer.earned_premiums = 1800;
+    insurer.claims_incurred = 1050;
+    insurer.interest_expenses = 90;
+    insurer.total_expenses = 1500;
+    insurer.underwriting_expenses = 360;
+    insurer.net_income = 220;
+    insurer.eps = 2.5;
+    insurer.total_debt = 900;
+    std::string err;
+    REQUIRE(sandbox.database.add_finances("INSR", "2024-Y", insurer, &err, 3));
+    REQUIRE(err.empty());
+
+    views::open_add_create(sandbox.app);
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 1);
+
+    for (char c : std::string("insr")) {
+        REQUIRE(views::handle_key_add(sandbox.app, c));
+    }
+    REQUIRE_EQ(sandbox.app.add.buffers[0], std::string("INSR"));
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 3);
     REQUIRE(sandbox.app.add.ticker_type_locked);
 }
 
@@ -298,6 +495,46 @@ TEST_CASE("key_home open bank ticker propagates type to ticker and edit views")
     REQUIRE(views::handle_key_ticker(sandbox.app, 'e'));
     REQUIRE_EQ(sandbox.app.current, views::ViewId::Add);
     REQUIRE_EQ(sandbox.app.add.ticker_type, 2);
+    REQUIRE(sandbox.app.add.ticker_type_locked);
+}
+
+TEST_CASE("key_home open insurer ticker propagates type to ticker and edit views")
+{
+    test::AppSandbox sandbox;
+
+    db::Database::FinancePayload insurer{};
+    insurer.total_assets = 10000;
+    insurer.total_liabilities = 8200;
+    insurer.insurance_reserves = 3400;
+    insurer.earned_premiums = 1800;
+    insurer.claims_incurred = 1050;
+    insurer.interest_expenses = 90;
+    insurer.total_expenses = 1500;
+    insurer.underwriting_expenses = 360;
+    insurer.net_income = 220;
+    insurer.eps = 2.5;
+    insurer.total_debt = 900;
+    std::string err;
+    REQUIRE(sandbox.database.add_finances("INSR", "2024-Y", insurer, &err, 3));
+    REQUIRE(err.empty());
+
+    sandbox.app.tickers.last_rows =
+        sandbox.database.get_tickers(0,
+                                     20,
+                                     db::Database::TickerSortKey::Ticker,
+                                     db::Database::SortDir::Asc,
+                                     &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(sandbox.app.tickers.last_rows.size(), std::size_t{1});
+    REQUIRE_EQ(sandbox.app.tickers.last_rows.front().type, 3);
+
+    REQUIRE(views::handle_key_home(sandbox.app, '\n'));
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Ticker);
+    REQUIRE_EQ(sandbox.app.ticker_view.ticker_type, 3);
+
+    REQUIRE(views::handle_key_ticker(sandbox.app, 'e'));
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Add);
+    REQUIRE_EQ(sandbox.app.add.ticker_type, 3);
     REQUIRE(sandbox.app.add.ticker_type_locked);
 }
 
@@ -360,6 +597,22 @@ TEST_CASE("key_ticker delete on last period returns to home")
     sandbox.app.current = views::ViewId::Ticker;
 
     REQUIRE(views::handle_key_ticker(sandbox.app, 'x'));
+    REQUIRE_EQ(sandbox.app.current, views::ViewId::Home);
+}
+
+TEST_CASE("key_ticker minus navigates back home")
+{
+    test::AppSandbox sandbox;
+    sandbox.add_finance("ONE", "2024-Y");
+
+    std::string err;
+    auto rows = sandbox.database.get_finances("ONE", &err);
+    REQUIRE(err.empty());
+
+    sandbox.app.ticker_view.reset("ONE", rows);
+    sandbox.app.current = views::ViewId::Ticker;
+
+    REQUIRE(views::handle_key_ticker(sandbox.app, '-'));
     REQUIRE_EQ(sandbox.app.current, views::ViewId::Home);
 }
 

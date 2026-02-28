@@ -1,5 +1,6 @@
 #include <curses.h>
 #include <cstdio>
+#include <chrono>
 #include <stdexcept>
 
 #include "state.hpp"
@@ -32,8 +33,6 @@ struct Ncurses {
             init_pair(2, COLOR_RED, -1);
             init_pair(3, COLOR_BLUE, -1);
             init_pair(4, COLOR_CYAN, -1);
-            const short bright_yellow = (COLORS > 11) ? 11 : COLOR_YELLOW;
-            init_pair(5, COLOR_BLACK, bright_yellow);
         }
     }
     ~Ncurses() { endwin(); }
@@ -85,6 +84,26 @@ int main()
                 break;
             }
 
+            int getch_timeout_ms = -1;
+            if (app.current == views::ViewId::Ticker &&
+                app.ticker_view.status_line_expires_at.has_value()) {
+                const auto now = std::chrono::steady_clock::now();
+                const auto expires_at = *app.ticker_view.status_line_expires_at;
+                const auto remaining_ms =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        expires_at - now)
+                        .count();
+                if (remaining_ms <= 0) {
+                    getch_timeout_ms = 0;
+                }
+                else if (remaining_ms < 100) {
+                    getch_timeout_ms = static_cast<int>(remaining_ms);
+                }
+                else {
+                    getch_timeout_ms = 100;
+                }
+            }
+            timeout(getch_timeout_ms);
             int ch = getch();
 
             // view-local first

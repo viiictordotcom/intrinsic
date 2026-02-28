@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS finances (
     common_equity_tier1         INTEGER,
     net_charge_offs             INTEGER,
     non_performing_loans        INTEGER,
+    insurance_reserves          INTEGER,
+    earned_premiums             INTEGER,
+    claims_incurred             INTEGER,
+    interest_expenses           INTEGER,
+    total_expenses              INTEGER,
+    underwriting_expenses       INTEGER,
+    total_debt                  INTEGER,
     PRIMARY KEY (ticker, year, period_type),
     FOREIGN KEY (ticker) REFERENCES tickers(ticker) ON DELETE CASCADE
 ) WITHOUT ROWID;
@@ -142,6 +149,25 @@ static void ensure_finances_bank_columns(sqlite3* db)
         db, "finances", "non_performing_loans", "non_performing_loans INTEGER");
 }
 
+static void ensure_finances_insurance_columns(sqlite3* db)
+{
+    ensure_column_exists(
+        db, "finances", "insurance_reserves", "insurance_reserves INTEGER");
+    ensure_column_exists(
+        db, "finances", "earned_premiums", "earned_premiums INTEGER");
+    ensure_column_exists(
+        db, "finances", "claims_incurred", "claims_incurred INTEGER");
+    ensure_column_exists(
+        db, "finances", "interest_expenses", "interest_expenses INTEGER");
+    ensure_column_exists(
+        db, "finances", "total_expenses", "total_expenses INTEGER");
+    ensure_column_exists(db,
+                         "finances",
+                         "underwriting_expenses",
+                         "underwriting_expenses INTEGER");
+    ensure_column_exists(db, "finances", "total_debt", "total_debt INTEGER");
+}
+
 void Database::apply_schema_()
 {
     db::detail::exec_sql(db_, "BEGIN;");
@@ -150,6 +176,7 @@ void Database::apply_schema_()
         ensure_tickers_portfolio_column(db_);
         ensure_tickers_type_column(db_);
         ensure_finances_bank_columns(db_);
+        ensure_finances_insurance_columns(db_);
         db::detail::exec_sql(
             db_,
             "CREATE INDEX IF NOT EXISTS idx_tickers_portfolio "

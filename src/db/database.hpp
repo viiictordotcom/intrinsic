@@ -61,6 +61,14 @@ public:
 
         std::optional<std::int64_t> net_charge_offs;
         std::optional<std::int64_t> non_performing_loans;
+
+        std::optional<std::int64_t> insurance_reserves;
+        std::optional<std::int64_t> earned_premiums;
+        std::optional<std::int64_t> claims_incurred;
+        std::optional<std::int64_t> interest_expenses;
+        std::optional<std::int64_t> total_expenses;
+        std::optional<std::int64_t> underwriting_expenses;
+        std::optional<std::int64_t> total_debt;
     };
 
     struct FinancePayload {
@@ -92,6 +100,14 @@ public:
 
         std::optional<std::int64_t> net_charge_offs;
         std::optional<std::int64_t> non_performing_loans;
+
+        std::optional<std::int64_t> insurance_reserves;
+        std::optional<std::int64_t> earned_premiums;
+        std::optional<std::int64_t> claims_incurred;
+        std::optional<std::int64_t> interest_expenses;
+        std::optional<std::int64_t> total_expenses;
+        std::optional<std::int64_t> underwriting_expenses;
+        std::optional<std::int64_t> total_debt;
     };
 
 public:

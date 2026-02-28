@@ -231,8 +231,7 @@ inline void render_settings(const AppState& app)
     y += 2;
     if (LINES > y) {
         if (app.settings_view.nuke_confirm_armed) {
-            mvprintw(
-                y, 2, "N  nuke      : initiate final sequence (press N again)");
+            mvprintw(y, 2, "N  nuke      : initiate sequence (press N again)");
         }
         else {
             mvprintw(y, 2, "N  nuke      : initiate self-destruct");
@@ -248,9 +247,7 @@ inline void render_settings(const AppState& app)
 
     if (LINES > 1) {
         attron(A_DIM);
-        mvprintw(LINES - 1,
-                 0,
-                 "h: home   ?: help   q: quit   update may require restart");
+        mvprintw(LINES - 1, 0, "h: home   ?: help   q: quit");
         attroff(A_DIM);
     }
 
@@ -524,3 +521,5 @@ inline bool handle_key_settings(AppState& app, int ch)
 }
 
 } // namespace views
+
+

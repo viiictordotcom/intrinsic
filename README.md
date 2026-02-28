@@ -23,6 +23,7 @@ The name intrinsic comes from Benjamin Graham’s famous concept of intrinsic va
 - Windows (WSL2): use Linux package/install flow inside WSL (`x86_64`, `aarch64`).
 
 WSL notes:
+
 - Run install/update commands from a WSL shell, not native PowerShell/cmd.
 - App data/settings are persisted in the WSL Linux filesystem (same Linux paths as above).
 - Clipboard copy (`c`) requires one of: `wl-copy`, `xclip`, or `xsel` to be available in WSL.
@@ -30,20 +31,24 @@ WSL notes:
 ## Install and compile
 
 - Install to your user profile (enables the `intrinsic` command):
+
 ```bash
 nix profile add github:viiictordotcom/intrinsic#default
 ```
 
 How it works:
+
 - `nix profile add` builds (if needed) and installs the app in your user profile.
 - Build artifacts are handled by Nix in the store; no manual build script is required.
 
 ## Update
 
 Rolling channel only (no version pinning):
+
 - `nix profile upgrade intrinsic --refresh` checks upstream and updates to latest available revision.
 
 Optional in-app update:
+
 1. Open `Settings`.
 2. Press `U`, then press `U` again to execute update.
 3. Restart `intrinsic` after update.
@@ -51,37 +56,46 @@ Optional in-app update:
 ## Typical flow
 
 1. Install once:
+
 ```bash
 nix profile add github:viiictordotcom/intrinsic#default
 ```
+
 2. Launch:
+
 ```bash
 intrinsic
 ```
+
 3. Update later:
+
 ```bash
 nix profile upgrade intrinsic --refresh
 ```
+
 Or in-app: open `Settings`, press `U`, then press `U` again.
 
 ## Usage and key bindings
 
 Global:
+
 - `q`: quit
 - `h`: home
 - `?`: help
 - `s`: settings
 
 Home view:
+
 - `a`: add record
 - `p`: mark/unmark selected ticker as a portfolio ticker
 - `P`: toggle portfolio-only view (and portfolio-scoped search)
 - `space`: search mode
 - `esc`: exit search
-- `arrow keys`: move selection / page navigation
+- `arrows`: move selection / page navigation
 - `enter`: open selected ticker
 
 Ticker view:
+
 - `left/right`: previous/next period
 - `up/down`: switch input field (`price`, `wished per`)
 - `PageUp/PageDown`: scroll metrics
@@ -90,16 +104,18 @@ Ticker view:
 - `x`: delete selected period
 - `c`: copy period + derived metrics to clipboard
 - `Backspace/Delete`: edit active input
-- `esc`: back to home
+- `esc` / `-`: back to home
 
 Add/Edit view:
-- `arrow keys`: move field/cursor
-- `tab`: switch add form type (`t1` / `t2`) for new tickers
+
+- `arrows/tab`: move field/cursor
+- `space`: switch add form type (`t1` / `t2` / `t3`) for new tickers
 - `enter`: validate and open confirm prompt
 - `y` / `n`: confirm or cancel write
 - `esc`: cancel and return
 
 Settings view:
+
 - `H`: toggle help hints
 - `S`: toggle ticker sort key
 - `O`: toggle sort direction
@@ -113,20 +129,24 @@ Settings view:
 
 - `type 1` (default): current/general company structure (balance + income + cash flow).
 - `type 2`: bank structure (loans/deposits/regulatory/asset quality).
+- `type 3`: insurer structure (assets/liabilities/reserves/income + ratios).
 - Ticker type is stored per ticker and cannot be mixed across periods.
-- In `Add` view, `Tab` switches type only for new tickers; existing tickers auto-lock to their saved type.
+- In `Add` view, `Space` switches type only for new tickers; existing tickers auto-lock to their saved type.
 
 Ticker field:
+
 - Normalized to uppercase
 - Allowed chars: `A-Z`, `0-9`, `.`
 - Max length: 12
 - Consecutive dots are collapsed
 
 Period field:
+
 - Format: `YYYY-TYPE`
 - Allowed types: `Y`, `Q1`, `Q2`, `Q3`, `Q4`, `S1`, `S2`
 
 Examples:
+
 - `2024-Y`
 - `2025-Q3`
 - `2023-S1`
@@ -153,10 +173,10 @@ Metrics are shown for the selected period in Ticker view.
 - If the previous same-period row is missing, or a needed denominator is zero/invalid, the change suffix is omitted.
 - Absolute-value metrics use: `((current - previous) / abs(previous)) * 100`.
 - Ratio metrics use sign-aware rules:
-    - If both values are negative, an improvement is shown when absolute value gets smaller.
-    - If previous is negative and current is positive, change is shown as a positive crossover.
-    - Otherwise, standard ratio delta is used: `((current - previous) / previous) * 100`.
-- For valuation multiples where lower is better (`P / E`, `P / BV`, `P / TBV`, `EVcap`, `EV / CFop`, `EV / NI`), change coloring is inverted in UI.
+  - If both values are negative, an improvement is shown when absolute value gets smaller.
+  - If previous is negative and current is positive, change is shown as a positive crossover.
+  - Otherwise, standard ratio delta is used: `((current - previous) / previous) * 100`.
+- Keep in mind: for some ratios (for example valuation multiples like `P / E`, `P / BV`, `P / TBV`, `EVcap`, `EV / CFop`, `EV / NI`), a negative change can be better.
 - `P needed` and `NI needed` are not YoY metrics:
 - `P needed` change is relative to the typed `price`.
 - `NI needed` change is relative to current/TTM net income baseline.
@@ -218,22 +238,23 @@ Metrics are shown for the selected period in Ticker view.
 
 - `P / E`: price-to-earnings
 - `P / TBV`: price-to-tangible-book-value
-- `TBV`: tangible book value per share (derived from `TE` and internal approximate shares)
 - `P needed`: price implied by `wished per` and EPS
 - `NI needed`: net income needed for current `price` at `wished per`
 - `TA`: total assets
 - `TL`: total liabilities
 - `Loans`: total loans
-- `Deposits`: total deposits
+- `Dep.`: total deposits
 - `Goodwill`: goodwill
 - `Loans / Dep.`: loan-to-deposit ratio
 - `E`: equity (`TA - TL`)
 - `TE`: tangible equity (`E - Goodwill`)
 - `Lev.`: leverage (`TA / TE`)
+- `Shs~`: approximate shares (`NI / EPS`, rounded)
+- `TBV`: tangible book value per share (derived from `TE` and internal approximate shares)
 - `NII`: net interest income
-- `NonII`: non-interest income
-- `NIExp`: non-interest expense
-- `PPOP`: pre-provision profit (`NII + NonII - NIExp`)
+- `Non-int. inc.`: non-interest income
+- `Non-int. exp.`: non-interest expense
+- `PPOP`: pre-provision profit (`NII + Non-int. inc. - Non-int. exp.`)
 - `LLP`: loan loss provisions
 - `LLP / PPOP`: `LLP / PPOP`
 - `NI`: net income
@@ -251,3 +272,36 @@ Metrics are shown for the selected period in Ticker view.
 - `CET1%`: `CET1 / RWA`
 
 </details>
+
+<details>
+<summary><strong>Type 3</strong></summary>
+
+- `P / E`: price-to-earnings
+- `P / BV`: price-to-book value
+- `P needed`: price implied by `wished per` and EPS
+- `NI needed`: net income needed for current `price` at `wished per`
+- `TA`: total assets
+- `TL`: total liabilities
+- `Resv.`: insurance reserves
+- `Debt`: total debt
+- `E`: equity (`TA - TL`)
+- `Resv. / E`: reserves-to-equity (`Resv. / E`)
+- `Debt / E`: debt-to-equity (`Debt / E`)
+- `Shs~`: approximate shares (`NI / EPS`, rounded)
+- `BV`: book value per share (`E / Shs~`)
+- `Premiums`: earned premiums
+- `Claims`: claims incurred
+- `Interests`: interest expenses (optional; blank renders as `--`)
+- `Expenses`: total expenses
+- `UW exp.`: underwriting expenses (`Expenses - Claims - Interests`; uses `0` when `Interests` is blank)
+- `UW profit`: underwriting profit (`Premiums - Claims - UW exp.`)
+- `Loss%`: `Claims / Premiums`
+- `Exp%`: `UW exp. / Premiums`
+- `Comb%`: combined ratio (`Loss% + Exp%`)
+- `UW margin%`: underwriting margin (`UW profit / Premiums`)
+- `NI`: net income
+- `EPS`: earnings per share
+- `ROE`: return on equity (`NI / E`)
+
+</details>
+

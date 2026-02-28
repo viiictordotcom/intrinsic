@@ -311,6 +311,56 @@ TEST_CASE("database stores ticker type and rejects mixed type periods")
     REQUIRE_CONTAINS(err, "ticker type mismatch");
 }
 
+TEST_CASE("database stores insurer fields for ticker type 3")
+{
+    test::TempDir temp;
+    db::Database database;
+    open_test_db(database, temp.path());
+
+    db::Database::FinancePayload insurer{};
+    insurer.total_assets = 10000;
+    insurer.total_liabilities = 8200;
+    insurer.insurance_reserves = 3400;
+    insurer.earned_premiums = 1800;
+    insurer.claims_incurred = 1050;
+    insurer.interest_expenses = 90;
+    insurer.total_expenses = 1500;
+    insurer.underwriting_expenses = 360;
+    insurer.net_income = 220;
+    insurer.eps = 2.5;
+    insurer.total_debt = 900;
+
+    std::string err;
+    REQUIRE(database.add_finances("INSR", "2024-Y", insurer, &err, 3));
+    REQUIRE(err.empty());
+
+    const auto tickers =
+        database.get_tickers(0,
+                             10,
+                             db::Database::TickerSortKey::Ticker,
+                             db::Database::SortDir::Asc,
+                             &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(tickers.size(), std::size_t{1});
+    REQUIRE_EQ(tickers.front().type, 3);
+
+    const auto rows = database.get_finances("INSR", &err);
+    REQUIRE(err.empty());
+    REQUIRE_EQ(rows.size(), std::size_t{1});
+    REQUIRE_EQ(rows.front().insurance_reserves, insurer.insurance_reserves);
+    REQUIRE_EQ(rows.front().earned_premiums, insurer.earned_premiums);
+    REQUIRE_EQ(rows.front().claims_incurred, insurer.claims_incurred);
+    REQUIRE_EQ(rows.front().interest_expenses, insurer.interest_expenses);
+    REQUIRE_EQ(rows.front().total_expenses, insurer.total_expenses);
+    REQUIRE_EQ(rows.front().underwriting_expenses,
+               insurer.underwriting_expenses);
+    REQUIRE_EQ(rows.front().total_debt, insurer.total_debt);
+
+    err.clear();
+    REQUIRE(!database.add_finances("INSR", "2025-Y", make_payload(), &err, 1));
+    REQUIRE_CONTAINS(err, "ticker type mismatch");
+}
+
 TEST_CASE("database add_finances upserts existing period")
 {
     test::TempDir temp;

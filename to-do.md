@@ -1,7 +1,9 @@
 # To-do
 
 - Add to nixpkgs and other package managers.
-- LLMs integration. 
+- Improve IFRS support (types 2 and 3).
+- Compare tickers.
+- LLMs integration.
 - Cloud sync (restic?).
 - Telegram sync.
 

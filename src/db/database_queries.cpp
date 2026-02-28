@@ -445,7 +445,7 @@ bool Database::add_finances(const std::string& ticker,
             db_,
             [&] {
                 // Existing ticker type is immutable. New rows default to 1 and
-                // new bank tickers can set 2.
+                // specialized models can set 2/3.
                 {
                     const char* sql = R"SQL(
                         SELECT type
@@ -521,7 +521,14 @@ bool Database::add_finances(const std::string& ticker,
                     risk_weighted_assets,
                     common_equity_tier1,
                     net_charge_offs,
-                    non_performing_loans
+                    non_performing_loans,
+                    insurance_reserves,
+                    earned_premiums,
+                    claims_incurred,
+                    interest_expenses,
+                    total_expenses,
+                    underwriting_expenses,
+                    total_debt
                 )
                 VALUES (
                     ?, ?, ?,
@@ -530,7 +537,8 @@ bool Database::add_finances(const std::string& ticker,
                     ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?,
-                    ?, ?, ?, ?
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?
                 )
                 ON CONFLICT(ticker, year, period_type)
                 DO UPDATE SET
@@ -557,7 +565,14 @@ bool Database::add_finances(const std::string& ticker,
                     risk_weighted_assets      = excluded.risk_weighted_assets,
                     common_equity_tier1       = excluded.common_equity_tier1,
                     net_charge_offs           = excluded.net_charge_offs,
-                    non_performing_loans      = excluded.non_performing_loans;
+                    non_performing_loans      = excluded.non_performing_loans,
+                    insurance_reserves        = excluded.insurance_reserves,
+                    earned_premiums           = excluded.earned_premiums,
+                    claims_incurred           = excluded.claims_incurred,
+                    interest_expenses         = excluded.interest_expenses,
+                    total_expenses            = excluded.total_expenses,
+                    underwriting_expenses     = excluded.underwriting_expenses,
+                    total_debt                = excluded.total_debt;
             )SQL";
 
                     Stmt st{db_, sql};
@@ -604,6 +619,16 @@ bool Database::add_finances(const std::string& ticker,
                     bind_i64_opt(db_, st.get(), 26, payload.net_charge_offs);
                     bind_i64_opt(
                         db_, st.get(), 27, payload.non_performing_loans);
+                    bind_i64_opt(
+                        db_, st.get(), 28, payload.insurance_reserves);
+                    bind_i64_opt(db_, st.get(), 29, payload.earned_premiums);
+                    bind_i64_opt(db_, st.get(), 30, payload.claims_incurred);
+                    bind_i64_opt(
+                        db_, st.get(), 31, payload.interest_expenses);
+                    bind_i64_opt(db_, st.get(), 32, payload.total_expenses);
+                    bind_i64_opt(
+                        db_, st.get(), 33, payload.underwriting_expenses);
+                    bind_i64_opt(db_, st.get(), 34, payload.total_debt);
 
                     const int rc = sqlite3_step(st.get());
                     if (rc != SQLITE_DONE)
@@ -649,7 +674,14 @@ Database::get_finances(const std::string& ticker, std::string* err)
                 risk_weighted_assets,
                 common_equity_tier1,
                 net_charge_offs,
-                non_performing_loans
+                non_performing_loans,
+                insurance_reserves,
+                earned_premiums,
+                claims_incurred,
+                interest_expenses,
+                total_expenses,
+                underwriting_expenses,
+                total_debt
             FROM finances
             WHERE ticker = ?
             ORDER BY year ASC, period_type ASC;
@@ -691,6 +723,13 @@ Database::get_finances(const std::string& ticker, std::string* err)
                 r.common_equity_tier1 = col_i64_opt(st.get(), 24);
                 r.net_charge_offs = col_i64_opt(st.get(), 25);
                 r.non_performing_loans = col_i64_opt(st.get(), 26);
+                r.insurance_reserves = col_i64_opt(st.get(), 27);
+                r.earned_premiums = col_i64_opt(st.get(), 28);
+                r.claims_incurred = col_i64_opt(st.get(), 29);
+                r.interest_expenses = col_i64_opt(st.get(), 30);
+                r.total_expenses = col_i64_opt(st.get(), 31);
+                r.underwriting_expenses = col_i64_opt(st.get(), 32);
+                r.total_debt = col_i64_opt(st.get(), 33);
 
                 out.push_back(std::move(r));
             }
