@@ -250,7 +250,7 @@ Metrics are shown for the selected period in Ticker view.
 - `TE`: tangible equity (`E - Goodwill`)
 - `Lev.`: leverage (`TA / TE`)
 - `Shs~`: approximate shares (`NI / EPS`, rounded)
-- `TBV`: tangible book value per share (derived from `TE` and internal approximate shares)
+- `TBV`: tangible book value per share (derived from `TE` and `Shs~`)
 - `NII`: net interest income
 - `Non-int. inc.`: non-interest income
 - `Non-int. exp.`: non-interest expense
@@ -291,9 +291,9 @@ Metrics are shown for the selected period in Ticker view.
 - `BV`: book value per share (`E / Shs~`)
 - `Premiums`: earned premiums
 - `Claims`: claims incurred
-- `Interests`: interest expenses (optional; blank renders as `--`)
+- `Interests`: interest expenses
 - `Expenses`: total expenses
-- `UW exp.`: underwriting expenses (`Expenses - Claims - Interests`; uses `0` when `Interests` is blank)
+- `UW exp.`: underwriting expenses (`Expenses - Claims - Interests`; uses `0` when `Interests` missing)
 - `UW profit`: underwriting profit (`Premiums - Claims - UW exp.`)
 - `Loss%`: `Claims / Premiums`
 - `Exp%`: `UW exp. / Premiums`
@@ -304,4 +304,5 @@ Metrics are shown for the selected period in Ticker view.
 - `ROE`: return on equity (`NI / E`)
 
 </details>
+
 
