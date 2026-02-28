@@ -5,6 +5,6 @@
 - Compare tickers.
 - LLMs integration.
 - Cloud sync (restic?).
-- Telegram sync.
+- Mobile sync.
 
 
