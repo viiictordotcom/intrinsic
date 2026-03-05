@@ -1,7 +1,7 @@
 #include "test_harness.hpp"
-#include "views/view_add.hpp"
-#include "views/view_home.hpp"
-#include "views/view_ticker.hpp"
+#include "views/add/view_add.hpp"
+#include "views/home/view_home.hpp"
+#include "views/ticker/view_ticker.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -158,12 +158,14 @@ TEST_CASE("view_home index helpers clamp and fallback predictably")
 
 TEST_CASE("view layout helpers switch hint rows on narrow terminals")
 {
-    const int add_input_x = views::add_input_x_for_type(views::kAddTickerType1A);
-    const int add_threshold = views::add_min_cols_for_two_column_mode(add_input_x);
+    const int add_input_x =
+        views::add_input_x_for_type(views::kAddTickerType1A);
+    const int add_threshold =
+        views::add_min_cols_for_two_column_mode(add_input_x);
     REQUIRE(views::add_terminal_too_narrow_for_two_column_mode(
         add_threshold - 1, add_input_x));
-    REQUIRE(!views::add_terminal_too_narrow_for_two_column_mode(
-        add_threshold, add_input_x));
+    REQUIRE(!views::add_terminal_too_narrow_for_two_column_mode(add_threshold,
+                                                                add_input_x));
 
     REQUIRE(views::home_use_three_row_help_layout(20));
     REQUIRE(!views::home_use_three_row_help_layout(120));
@@ -308,3 +310,5 @@ TEST_CASE("view_ticker input-dependent overflow guard is length-based")
     REQUIRE(views::input_metric_overflows_width(
         "-9999999", "-1234567k%", 18, true));
 }
+
+

@@ -7,12 +7,12 @@
 #include "state.hpp"
 #include "settings.hpp"
 #include "views/view.hpp"
-#include "views/view_home.hpp"
-#include "views/view_help.hpp"
-#include "views/view_settings.hpp"
-#include "views/view_error.hpp"
-#include "views/view_add.hpp"
-#include "views/view_ticker.hpp"
+#include "views/home/view_home.hpp"
+#include "views/help/view_help.hpp"
+#include "views/settings/view_settings.hpp"
+#include "views/error/view_error.hpp"
+#include "views/add/view_add.hpp"
+#include "views/ticker/view_ticker.hpp"
 
 inline short rgb8_to_ncurses(int channel)
 {
@@ -29,8 +29,8 @@ inline AccentColors accent_colors_for_mode(ColorMode mode)
 {
     AccentColors colors;
 
-    // White and black modes use predefined accents when available.
-    // Default mode keeps terminal-derived colors.
+    // white and black modes use predefined accents when available
+    // default mode keeps terminal-derived colors
     if (mode != ColorMode::White && mode != ColorMode::Black) return colors;
     if (!can_change_color() || COLORS < 16) return colors;
 
@@ -38,19 +38,14 @@ inline AccentColors accent_colors_for_mode(ColorMode mode)
     const short custom_red = static_cast<short>(COLORS - 2);
     const short custom_cyan = static_cast<short>(COLORS - 1);
 
-    // Accent colors tuned to keep the same palette vibe while improving
-    // contrast on fixed white/black backgrounds.
-    // Green: darker variant of #72DCC0
     init_color(custom_green,
                rgb8_to_ncurses(0x4F),
                rgb8_to_ncurses(0xAE),
                rgb8_to_ncurses(0x93));
-    // Red: darker variant of #E97B9D
     init_color(custom_red,
                rgb8_to_ncurses(0xCC),
                rgb8_to_ncurses(0x5F),
                rgb8_to_ncurses(0x81));
-    // Cyan: darker variant of #5FB8F2
     init_color(custom_cyan,
                rgb8_to_ncurses(0x3C),
                rgb8_to_ncurses(0x9D),
@@ -104,19 +99,14 @@ struct Ncurses {
         BlackLight,
     };
 
-    static void handle_sigint(int)
-    {
-        interrupted_ = 1;
-    }
+    static void handle_sigint(int) { interrupted_ = 1; }
 
-    static bool interrupt_requested()
-    {
-        return interrupted_ != 0;
-    }
+    static bool interrupt_requested() { return interrupted_ != 0; }
 
     static bool is_ticker_or_add_view(views::ViewId view_id)
     {
-        return view_id == views::ViewId::Ticker || view_id == views::ViewId::Add;
+        return view_id == views::ViewId::Ticker ||
+               view_id == views::ViewId::Add;
     }
 
     void sync_terminal_appearance(ColorMode color_mode, views::ViewId view_id)
@@ -179,10 +169,11 @@ struct Ncurses {
     Ncurses()
     {
         interrupted_ = 0;
-        struct sigaction action {};
+        struct sigaction action{};
         action.sa_handler = &Ncurses::handle_sigint;
         sigemptyset(&action.sa_mask);
-        action.sa_flags = 0; // avoid SA_RESTART so input waits can be interrupted
+        action.sa_flags =
+            0; // avoid SA_RESTART so input waits can be interrupted
         has_old_sigint_action_ =
             (sigaction(SIGINT, &action, &old_sigint_action_) == 0);
         initscr();
@@ -217,11 +208,11 @@ struct Ncurses {
     Ncurses(const Ncurses&) = delete;
     Ncurses& operator=(const Ncurses&) = delete;
 
-  private:
+private:
     inline static volatile std::sig_atomic_t interrupted_ = 0;
     TerminalBackground terminal_background_ = TerminalBackground::Default;
     TerminalCursor terminal_cursor_ = TerminalCursor::Default;
-    struct sigaction old_sigint_action_ {};
+    struct sigaction old_sigint_action_{};
     bool has_old_sigint_action_ = false;
 };
 
@@ -248,7 +239,8 @@ int main()
         while (true) {
             if (Ncurses::interrupt_requested()) break;
 
-            ncurses.sync_terminal_appearance(app.settings.color_mode, app.current);
+            ncurses.sync_terminal_appearance(app.settings.color_mode,
+                                             app.current);
             configure_theme(app.settings);
 
             // render
@@ -355,3 +347,5 @@ int main()
         return 1;
     }
 }
+
+

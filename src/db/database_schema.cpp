@@ -60,8 +60,8 @@ static bool table_has_column(sqlite3* db,
                              const char* table_name,
                              std::string_view column_name)
 {
-    const std::string sql = "PRAGMA table_info(" + std::string(table_name) +
-                            ");";
+    const std::string sql =
+        "PRAGMA table_info(" + std::string(table_name) + ");";
 
     sqlite3_stmt* st = nullptr;
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &st, nullptr) != SQLITE_OK) {
@@ -112,14 +112,16 @@ static void ensure_tickers_portfolio_column(sqlite3* db)
 
 static void ensure_tickers_type_column(sqlite3* db)
 {
-    ensure_column_exists(db, "tickers", "type", "type INTEGER NOT NULL DEFAULT 1");
+    ensure_column_exists(
+        db, "tickers", "type", "type INTEGER NOT NULL DEFAULT 1");
 }
 
 static void ensure_finances_bank_columns(sqlite3* db)
 {
     ensure_column_exists(db, "finances", "total_loans", "total_loans INTEGER");
     ensure_column_exists(db, "finances", "goodwill", "goodwill INTEGER");
-    ensure_column_exists(db, "finances", "total_assets", "total_assets INTEGER");
+    ensure_column_exists(
+        db, "finances", "total_assets", "total_assets INTEGER");
     ensure_column_exists(
         db, "finances", "total_deposits", "total_deposits INTEGER");
     ensure_column_exists(
@@ -129,14 +131,10 @@ static void ensure_finances_bank_columns(sqlite3* db)
         db, "finances", "net_interest_income", "net_interest_income INTEGER");
     ensure_column_exists(
         db, "finances", "non_interest_income", "non_interest_income INTEGER");
-    ensure_column_exists(db,
-                         "finances",
-                         "loan_loss_provisions",
-                         "loan_loss_provisions INTEGER");
-    ensure_column_exists(db,
-                         "finances",
-                         "non_interest_expense",
-                         "non_interest_expense INTEGER");
+    ensure_column_exists(
+        db, "finances", "loan_loss_provisions", "loan_loss_provisions INTEGER");
+    ensure_column_exists(
+        db, "finances", "non_interest_expense", "non_interest_expense INTEGER");
 
     ensure_column_exists(
         db, "finances", "risk_weighted_assets", "risk_weighted_assets INTEGER");
@@ -190,3 +188,5 @@ void Database::apply_schema_()
 }
 
 } // namespace db
+
+

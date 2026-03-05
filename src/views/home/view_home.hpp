@@ -143,7 +143,8 @@ inline bool open_selected_home_ticker(AppState& app)
         return true;
     }
 
-    app.ticker_view.reset(ticker, std::move(finances), rows[app.tickers.selected].type);
+    app.ticker_view.reset(
+        ticker, std::move(finances), rows[app.tickers.selected].type);
     app.current = views::ViewId::Ticker;
     return true;
 }
@@ -169,11 +170,10 @@ inline void exit_home_search_mode(AppState& app)
 inline bool run_home_search(AppState& app)
 {
     std::string err;
-    auto rows = app.db->search_tickers(
-        app.tickers.search_query,
-        kHomeSearchLimit,
-        &err,
-        app.tickers.portfolio_only);
+    auto rows = app.db->search_tickers(app.tickers.search_query,
+                                       kHomeSearchLimit,
+                                       &err,
+                                       app.tickers.portfolio_only);
     if (!err.empty()) {
         route_error(app, err);
         return false;
@@ -196,7 +196,8 @@ inline bool toggle_home_portfolio_mode(AppState& app)
 
     if (!app.tickers.search_mode) return true;
 
-    const bool has_submitted_query = !app.tickers.search_submitted_query.empty();
+    const bool has_submitted_query =
+        !app.tickers.search_submitted_query.empty();
     const bool showing_submitted_query =
         app.tickers.search_query == app.tickers.search_submitted_query;
     if (has_submitted_query && showing_submitted_query) {
@@ -478,7 +479,9 @@ inline void render_home(AppState& app)
             }
             else {
                 print_help(y0 + 2, kHomeHelpMainRowWide);
-                print_help(y0 + 3, "space: search   p: mark portfolio   P: portfolio view");
+                print_help(
+                    y0 + 3,
+                    "space: search   p: mark portfolio   P: portfolio view");
             }
             attroff(A_DIM);
         }
@@ -515,7 +518,9 @@ inline void render_home(AppState& app)
             }
             else {
                 print_help(y0 + 0, kHomeHelpMainRowWide);
-                print_help(y0 + 1, "space: search   p: mark portfolio   P: portfolio view");
+                print_help(
+                    y0 + 1,
+                    "space: search   p: mark portfolio   P: portfolio view");
             }
             attroff(A_DIM);
         }
@@ -664,3 +669,5 @@ inline bool handle_key_home(AppState& app, int ch)
 }
 
 } // namespace views
+
+

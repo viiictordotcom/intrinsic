@@ -21,7 +21,7 @@ inline void render_error(const AppState& app)
     }
 
     const int start_y = 2;
-    const int footer_lines = 2;
+    const int footer_lines = app.settings.show_help ? 2 : 0;
     const int message_limit = std::max(0, LINES - start_y - footer_lines);
     const int width = std::max(8, COLS - 1);
 
@@ -35,10 +35,12 @@ inline void render_error(const AppState& app)
         i += static_cast<std::size_t>(chunk);
     }
 
-    attron(A_DIM);
-    if (LINES > 1) mvprintw(LINES - 2, 0, "h: home   q: quit");
-    if (LINES > 0) mvprintw(LINES - 1, 0, "?: help   s: settings");
-    attroff(A_DIM);
+    if (app.settings.show_help) {
+        attron(A_DIM);
+        if (LINES > 1) mvprintw(LINES - 2, 0, "h: home   q: quit");
+        if (LINES > 0) mvprintw(LINES - 1, 0, "?: help   s: settings");
+        attroff(A_DIM);
+    }
 
     wnoutrefresh(stdscr);
     doupdate();

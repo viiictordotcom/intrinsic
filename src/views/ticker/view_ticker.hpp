@@ -2,7 +2,7 @@
 
 #include <chrono>
 
-#include "views/view_ticker_helpers.hpp"
+#include "views/ticker/view_ticker_helpers.hpp"
 
 namespace views {
 
@@ -39,11 +39,7 @@ inline void render_ticker(AppState& app)
         if (has_colors()) attroff(COLOR_PAIR(kColorPairHeader));
         if (COLS > 11) {
             const int ticker_type = normalize_add_ticker_type(view.ticker_type);
-            mvprintw(0,
-                     11,
-                     " %s [type %d]",
-                     view.ticker.c_str(),
-                     ticker_type);
+            mvprintw(0, 11, " %s [type %d]", view.ticker.c_str(), ticker_type);
         }
     }
     if (LINES > 2 && !view.status_line.empty()) {
@@ -445,15 +441,15 @@ inline void render_ticker(AppState& app)
 
     const std::vector<Metric> target_box = {
         {"P needed",
-         with_change(format_compact_i64_from_f64_opt(price_needed_for_wished_per,
-                                                     kNaValue),
+         with_change(format_compact_i64_from_f64_opt(
+                         price_needed_for_wished_per, kNaValue),
                      price_needed_change),
          false,
          true},
         {"NI needed",
-         with_change(format_compact_i64_from_f64_opt(required_net_income,
-                                                     kNaValue),
-                     required_net_income_change),
+         with_change(
+             format_compact_i64_from_f64_opt(required_net_income, kNaValue),
+             required_net_income_change),
          false,
          true},
     };
@@ -880,3 +876,5 @@ inline bool handle_key_ticker(AppState& app, int ch)
 }
 
 } // namespace views
+
+

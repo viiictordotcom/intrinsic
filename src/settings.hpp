@@ -74,7 +74,8 @@ inline bool save_settings(const AppState::Settings& s, std::string* err)
         out << "ttm=" << (s.ttm ? "1" : "0") << "\n";
         out << "show_help=" << (s.show_help ? "1" : "0") << "\n";
         const char* color_mode_str = "default";
-        if (s.color_mode == ColorMode::White) color_mode_str = "white_background";
+        if (s.color_mode == ColorMode::White)
+            color_mode_str = "white_background";
         if (s.color_mode == ColorMode::Black) color_mode_str = "black";
         out << "color_mode=" << color_mode_str << "\n";
         out.flush();
@@ -164,8 +165,8 @@ inline bool load_settings(AppState::Settings& s, std::string* err)
                 if (val == "default" || val == "normal" || val == "current")
                     s.color_mode = ColorMode::Default;
                 if (val == "white" || val == "white_bg" ||
-                    val == "white-background" ||
-                    val == "white_background" || val == "light")
+                    val == "white-background" || val == "white_background" ||
+                    val == "light")
                     s.color_mode = ColorMode::White;
                 if (val == "black" || val == "dark" || val == "dark_mode")
                     s.color_mode = ColorMode::Black;
@@ -185,3 +186,5 @@ inline bool load_settings(AppState::Settings& s, std::string* err)
         return false;
     }
 }
+
+

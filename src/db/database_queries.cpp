@@ -153,13 +153,13 @@ static bool in_transaction(sqlite3* db, Fn&& fn, std::string* err = nullptr)
 // ****
 // ***** QUERIES
 
-std::vector<db::Database::TickerRow> db::Database::get_tickers(
-    int page,
-    int page_size,
-    TickerSortKey key,
-    SortDir dir,
-    std::string* err,
-    bool portfolio_only)
+std::vector<db::Database::TickerRow>
+db::Database::get_tickers(int page,
+                          int page_size,
+                          TickerSortKey key,
+                          SortDir dir,
+                          std::string* err,
+                          bool portfolio_only)
 {
     try {
         if (page < 0) page = 0;
@@ -197,10 +197,9 @@ std::vector<db::Database::TickerRow> db::Database::get_tickers(
             sql += "WHERE portfolio = 1 ";
         }
 
-        sql += "ORDER BY " +
-                          std::string(order_by) +
-                          " "
-                          "LIMIT ? OFFSET ?;";
+        sql += "ORDER BY " + std::string(order_by) +
+               " "
+               "LIMIT ? OFFSET ?;";
 
         Stmt st{db_, sql.c_str()};
 
@@ -236,8 +235,11 @@ std::vector<db::Database::TickerRow> db::Database::get_tickers(
     }
 }
 
-std::vector<db::Database::TickerRow> db::Database::search_tickers(
-    const std::string& contains, int limit, std::string* err, bool portfolio_only)
+std::vector<db::Database::TickerRow>
+db::Database::search_tickers(const std::string& contains,
+                             int limit,
+                             std::string* err,
+                             bool portfolio_only)
 {
     try {
         if (limit <= 0) limit = 1;
@@ -289,7 +291,8 @@ std::vector<db::Database::TickerRow> db::Database::search_tickers(
     }
 }
 
-bool Database::toggle_ticker_portfolio(const std::string& ticker, std::string* err)
+bool Database::toggle_ticker_portfolio(const std::string& ticker,
+                                       std::string* err)
 {
     try {
         const char* sql = R"SQL(
@@ -303,7 +306,8 @@ bool Database::toggle_ticker_portfolio(const std::string& ticker, std::string* e
 
         const int rc = sqlite3_step(st.get());
         if (rc != SQLITE_DONE) {
-            db::detail::throw_sqlite(db_, "toggle ticker portfolio step failed");
+            db::detail::throw_sqlite(db_,
+                                     "toggle ticker portfolio step failed");
         }
 
         return sqlite3_changes(db_) > 0;
@@ -485,7 +489,8 @@ bool Database::add_finances(const std::string& ticker,
                     if (sqlite3_bind_int64(st.get(), 2, now) != SQLITE_OK)
                         db::detail::throw_sqlite(db_, "bind now failed");
                     if (sqlite3_bind_int(st.get(), 3, ticker_type) != SQLITE_OK)
-                        db::detail::throw_sqlite(db_, "bind ticker type failed");
+                        db::detail::throw_sqlite(db_,
+                                                 "bind ticker type failed");
 
                     const int rc = sqlite3_step(st.get());
                     if (rc != SQLITE_DONE)
@@ -619,12 +624,10 @@ bool Database::add_finances(const std::string& ticker,
                     bind_i64_opt(db_, st.get(), 26, payload.net_charge_offs);
                     bind_i64_opt(
                         db_, st.get(), 27, payload.non_performing_loans);
-                    bind_i64_opt(
-                        db_, st.get(), 28, payload.insurance_reserves);
+                    bind_i64_opt(db_, st.get(), 28, payload.insurance_reserves);
                     bind_i64_opt(db_, st.get(), 29, payload.earned_premiums);
                     bind_i64_opt(db_, st.get(), 30, payload.claims_incurred);
-                    bind_i64_opt(
-                        db_, st.get(), 31, payload.interest_expenses);
+                    bind_i64_opt(db_, st.get(), 31, payload.interest_expenses);
                     bind_i64_opt(db_, st.get(), 32, payload.total_expenses);
                     bind_i64_opt(
                         db_, st.get(), 33, payload.underwriting_expenses);
@@ -750,3 +753,5 @@ Database::get_finances(const std::string& ticker, std::string* err)
 }
 
 } // namespace db
+
+

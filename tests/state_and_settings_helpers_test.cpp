@@ -1,7 +1,7 @@
 #include "state.hpp"
 #include "test_harness.hpp"
 #include "test_utils.hpp"
-#include "views/view_settings.hpp"
+#include "views/settings/view_settings.hpp"
 
 #include <filesystem>
 #include <string>

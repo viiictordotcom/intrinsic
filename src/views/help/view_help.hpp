@@ -6,10 +6,11 @@
 
 namespace views {
 
-inline void render_help(AppState&)
+inline void render_help(const AppState& app)
 {
     curs_set(0);
     erase();
+    const bool show_hint_rows = app.settings.show_help;
     if (LINES > 0) {
         if (has_colors()) attron(COLOR_PAIR(3));
         attron(A_BOLD);
@@ -18,7 +19,7 @@ inline void render_help(AppState&)
         if (has_colors()) attroff(COLOR_PAIR(3));
         if (COLS > 11) mvprintw(0, 11, " help");
     }
-    if (LINES > 1) {
+    if (show_hint_rows && LINES > 1) {
         const char* nav_hint = "h/esc: home";
         const int max_width = (COLS > 0) ? (COLS - 1) : 0;
         attron(A_DIM);
@@ -47,7 +48,7 @@ inline void render_help(AppState&)
         "y  - toggle yearly/all periods",
     };
 
-    const int start_y = 2;
+    const int start_y = show_hint_rows ? 2 : 1;
     const int available = (LINES > start_y) ? (LINES - start_y) : 0;
     const int shown =
         (available > 0) ? std::min<int>(available, lines.size()) : 0;
@@ -56,7 +57,7 @@ inline void render_help(AppState&)
         mvprintw(start_y + i, 2, "%s", lines[static_cast<std::size_t>(i)]);
     }
 
-    if (shown < static_cast<int>(lines.size()) && LINES > 1) {
+    if (show_hint_rows && shown < static_cast<int>(lines.size()) && LINES > 1) {
         attron(A_DIM);
         mvprintw(LINES - 1, 0, "... resize terminal to see all help");
         attroff(A_DIM);
@@ -76,3 +77,5 @@ inline bool handle_key_help(AppState& app, int ch)
 }
 
 } // namespace views
+
+

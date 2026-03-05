@@ -232,3 +232,5 @@ TEST_CASE("settings save fails when config directory is not writable")
     REQUIRE(!ok);
     REQUIRE_CONTAINS(err, "failed to open config for writing");
 }
+
+

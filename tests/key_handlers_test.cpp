@@ -1,11 +1,11 @@
 #include "settings.hpp"
 #include "test_fixture.hpp"
 #include "test_harness.hpp"
-#include "views/view_add.hpp"
-#include "views/view_help.hpp"
-#include "views/view_home.hpp"
-#include "views/view_settings.hpp"
-#include "views/view_ticker.hpp"
+#include "views/add/view_add.hpp"
+#include "views/help/view_help.hpp"
+#include "views/home/view_home.hpp"
+#include "views/settings/view_settings.hpp"
+#include "views/ticker/view_ticker.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -100,12 +100,13 @@ TEST_CASE("key_home p toggles selected ticker portfolio membership")
 
     REQUIRE(views::handle_key_home(sandbox.app, 'p'));
 
-    const auto none = sandbox.database.get_tickers(0,
-                                                   20,
-                                                   db::Database::TickerSortKey::Ticker,
-                                                   db::Database::SortDir::Asc,
-                                                   &err,
-                                                   true);
+    const auto none =
+        sandbox.database.get_tickers(0,
+                                     20,
+                                     db::Database::TickerSortKey::Ticker,
+                                     db::Database::SortDir::Asc,
+                                     &err,
+                                     true);
     REQUIRE(err.empty());
     REQUIRE(none.empty());
 }
@@ -297,7 +298,8 @@ TEST_CASE("key_add < collapses and clears extra period column")
     REQUIRE(sandbox.app.add.buffers_extra[1].empty());
 }
 
-TEST_CASE("key_add two-column arrows move cursor first and switch columns at edges")
+TEST_CASE(
+    "key_add two-column arrows move cursor first and switch columns at edges")
 {
     test::AppSandbox sandbox;
 
@@ -413,10 +415,13 @@ TEST_CASE("key_add type1b derives non-current fields from totals")
     const auto rows = sandbox.database.get_finances("TOTL", &err);
     REQUIRE(err.empty());
     REQUIRE_EQ(rows.size(), std::size_t{1});
-    REQUIRE_EQ(rows.front().cash_and_equivalents, std::optional<std::int64_t>{100});
+    REQUIRE_EQ(rows.front().cash_and_equivalents,
+               std::optional<std::int64_t>{100});
     REQUIRE_EQ(rows.front().current_assets, std::optional<std::int64_t>{400});
-    REQUIRE_EQ(rows.front().non_current_assets, std::optional<std::int64_t>{600});
-    REQUIRE_EQ(rows.front().current_liabilities, std::optional<std::int64_t>{250});
+    REQUIRE_EQ(rows.front().non_current_assets,
+               std::optional<std::int64_t>{600});
+    REQUIRE_EQ(rows.front().current_liabilities,
+               std::optional<std::int64_t>{250});
     REQUIRE_EQ(rows.front().non_current_liabilities,
                std::optional<std::int64_t>{350});
     REQUIRE_EQ(rows.front().revenue, std::optional<std::int64_t>{1200});
@@ -499,8 +504,7 @@ TEST_CASE("key_add type3 create flow stores insurer record and returns home")
                std::optional<std::int64_t>{8200});
     REQUIRE_EQ(rows.front().earned_premiums, std::optional<std::int64_t>{1800});
     REQUIRE_EQ(rows.front().claims_incurred, std::optional<std::int64_t>{1050});
-    REQUIRE_EQ(rows.front().interest_expenses,
-               std::optional<std::int64_t>{90});
+    REQUIRE_EQ(rows.front().interest_expenses, std::optional<std::int64_t>{90});
     REQUIRE_EQ(rows.front().total_expenses, std::optional<std::int64_t>{1500});
     REQUIRE_EQ(rows.front().underwriting_expenses,
                std::optional<std::int64_t>{360});
@@ -513,7 +517,8 @@ TEST_CASE("key_add type3 create flow stores insurer record and returns home")
     REQUIRE_EQ(*db_type, 3);
 }
 
-TEST_CASE("key_add type3 empty interest is stored null and derives underwriting")
+TEST_CASE(
+    "key_add type3 empty interest is stored null and derives underwriting")
 {
     test::AppSandbox sandbox;
 
@@ -605,7 +610,8 @@ TEST_CASE("key_add enforces numeric digit limits and edit escape routing")
     REQUIRE_EQ(sandbox.app.current, views::ViewId::Ticker);
 }
 
-TEST_CASE("key_add edit mode disables two-column shortcuts and only edits current period")
+TEST_CASE("key_add edit mode disables two-column shortcuts and only edits "
+          "current period")
 {
     test::AppSandbox sandbox;
     sandbox.add_finance("MSFT", "2024-Y", test::standard_payload(100, 10, 1.0));
@@ -631,16 +637,18 @@ TEST_CASE("key_add edit mode disables two-column shortcuts and only edits curren
     REQUIRE_EQ(sandbox.app.add.value_columns, 1);
     REQUIRE_EQ(sandbox.app.add.column, 0);
 
-    const int period_idx =
-        views::add_field_index(sandbox.app.add.ticker_type, views::FieldKey::Period);
-    const int revenue_idx =
-        views::add_field_index(sandbox.app.add.ticker_type, views::FieldKey::Revenue);
+    const int period_idx = views::add_field_index(sandbox.app.add.ticker_type,
+                                                  views::FieldKey::Period);
+    const int revenue_idx = views::add_field_index(sandbox.app.add.ticker_type,
+                                                   views::FieldKey::Revenue);
     REQUIRE(period_idx >= 0);
     REQUIRE(revenue_idx >= 0);
 
     sandbox.app.add.buffers[static_cast<std::size_t>(revenue_idx)] = "999";
-    sandbox.app.add.buffers_extra[static_cast<std::size_t>(period_idx)] = "2026-Y";
-    sandbox.app.add.buffers_extra[static_cast<std::size_t>(revenue_idx)] = "777";
+    sandbox.app.add.buffers_extra[static_cast<std::size_t>(period_idx)] =
+        "2026-Y";
+    sandbox.app.add.buffers_extra[static_cast<std::size_t>(revenue_idx)] =
+        "777";
 
     REQUIRE(views::handle_key_add(sandbox.app, '\n'));
     REQUIRE(sandbox.app.add.confirming);
@@ -756,7 +764,8 @@ TEST_CASE("key_add tab moves down and stops at the last field")
     REQUIRE_EQ(sandbox.app.add.ticker_type, 1);
     REQUIRE_EQ(sandbox.app.add.index, 0);
 
-    const auto& fields = views::add_fields_for_type(sandbox.app.add.ticker_type);
+    const auto& fields =
+        views::add_fields_for_type(sandbox.app.add.ticker_type);
     REQUIRE(!fields.empty());
     const int last_index = static_cast<int>(fields.size()) - 1;
 
@@ -843,7 +852,8 @@ TEST_CASE("key_home open bank ticker propagates type to ticker and edit views")
     REQUIRE(sandbox.app.add.ticker_type_locked);
 }
 
-TEST_CASE("key_home open insurer ticker propagates type to ticker and edit views")
+TEST_CASE(
+    "key_home open insurer ticker propagates type to ticker and edit views")
 {
     test::AppSandbox sandbox;
 
@@ -1052,3 +1062,5 @@ TEST_CASE("key_settings and key_help escape routes back home")
     REQUIRE(views::handle_key_help(sandbox.app, 27));
     REQUIRE_EQ(sandbox.app.current, views::ViewId::Home);
 }
+
+

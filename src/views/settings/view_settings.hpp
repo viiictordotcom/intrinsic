@@ -258,7 +258,7 @@ inline void render_settings(const AppState& app)
         attroff(A_DIM);
     }
 
-    if (LINES > 1) {
+    if (app.settings.show_help && LINES > 1) {
         attron(A_DIM);
         mvprintw(LINES - 1, 0, "h / esc: home   ?: help   q: quit");
         attroff(A_DIM);
@@ -552,3 +552,5 @@ inline bool handle_key_settings(AppState& app, int ch)
 }
 
 } // namespace views
+
+

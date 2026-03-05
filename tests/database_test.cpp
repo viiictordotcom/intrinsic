@@ -51,12 +51,11 @@ void create_legacy_schema_db(const std::filesystem::path& db_path)
     }
 
     sqlite3* raw = nullptr;
-    const int open_rc = sqlite3_open_v2(db_path.string().c_str(),
-                                        &raw,
-                                        SQLITE_OPEN_READWRITE |
-                                            SQLITE_OPEN_CREATE |
-                                            SQLITE_OPEN_FULLMUTEX,
-                                        nullptr);
+    const int open_rc = sqlite3_open_v2(
+        db_path.string().c_str(),
+        &raw,
+        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
+        nullptr);
     if (open_rc != SQLITE_OK || !raw) {
         if (raw) sqlite3_close(raw);
         throw std::runtime_error("failed to create legacy sqlite file");
@@ -416,7 +415,8 @@ TEST_CASE("database portfolio toggles and filters get/search ticker queries")
     REQUIRE_EQ(portfolio_only.front().ticker, std::string("AAPL"));
     REQUIRE(portfolio_only.front().portfolio);
 
-    const auto search_portfolio = database.search_tickers("AAP", 10, &err, true);
+    const auto search_portfolio =
+        database.search_tickers("AAP", 10, &err, true);
     REQUIRE(err.empty());
     REQUIRE_EQ(search_portfolio.size(), std::size_t{1});
     REQUIRE_EQ(search_portfolio.front().ticker, std::string("AAPL"));
@@ -728,3 +728,5 @@ TEST_CASE("database supports concurrent writes across separate connections")
     REQUIRE(err.empty());
     REQUIRE_EQ(rows.size(), std::size_t{100});
 }
+
+
