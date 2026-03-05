@@ -8,7 +8,9 @@ namespace views {
 
 inline void render_ticker(AppState& app)
 {
-    curs_set(1);
+    // Ticker draws a custom blinking caret, so keep the terminal cursor hidden
+    // to avoid dual-caret artifacts (e.g., a block cursor next to '|').
+    curs_set(0);
     erase();
 
     auto& view = app.ticker_view;
@@ -876,5 +878,4 @@ inline bool handle_key_ticker(AppState& app, int ch)
 }
 
 } // namespace views
-
 
