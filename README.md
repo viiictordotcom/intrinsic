@@ -41,6 +41,8 @@ How it works:
 - `nix profile add` builds (if needed) and installs the app in your user profile.
 - Build artifacts are handled by Nix in the store; no manual build script is required.
 
+- *For a beginner-friendly Nix install, see [Determinate Systems installer](https://docs.determinate.systems/).*
+
 ## Update
 
 Rolling channel only (no version pinning):
@@ -309,5 +311,4 @@ Type labels below match ticker view metric labels.
 - `ROE`: return on equity (`NI / E`)
 
 </details>
-
 
