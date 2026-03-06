@@ -1,12 +1,31 @@
 # intrinsic
 
-Analyze stocks from the terminal. Track your companies with a fast ncurses + SQLite workflow. Distributed as a **Nix-only** package.
+Analyze stocks from the terminal. A fast CLI stock analysis tool with an ncurses terminal UI and SQLite backend. Distributed as a **Nix-only** package.
+
+Nix keeps installation simple and reproducible: no dependency hunting, no build scripts, just install and run.
 
 <p align="center">
   <img src="intrinsic_img.png" alt="Intrinsic terminal app" width="400"/>
 </p>
 
-The name intrinsic comes from Benjamin Graham’s famous concept of intrinsic value. The true worth of a company based on its fundamentals, rather than market speculation. The app is designed to bring this philosophy into your workflow, giving you a clear, data-driven view of the businesses you’re evaluating.
+The name intrinsic comes from Benjamin Graham’s famous concept of intrinsic value: the true worth of a company based on its fundamentals rather than market speculation. The app is designed to bring this philosophy into your workflow, giving you a clear, data-driven view of the businesses you’re evaluating.
+
+## Quick start
+
+Install and run:
+
+```bash
+nix profile add github:viiictordotcom/intrinsic#default
+intrinsic
+```
+
+Update:
+
+```bash
+nix profile upgrade intrinsic --refresh
+```
+
+Or update within the app in `Settings`.
 
 ## Main dependencies
 
@@ -41,7 +60,7 @@ How it works:
 - `nix profile add` builds (if needed) and installs the app in your user profile.
 - Build artifacts are handled by Nix in the store; no manual build script is required.
 
-- *For a beginner-friendly Nix install, see [Determinate Systems installer](https://docs.determinate.systems/).*
+- _For a beginner-friendly Nix install, see [Determinate Systems installer](https://docs.determinate.systems/)._
 
 ## Update
 
@@ -311,4 +330,5 @@ Type labels below match ticker view metric labels.
 - `ROE`: return on equity (`NI / E`)
 
 </details>
+
 
